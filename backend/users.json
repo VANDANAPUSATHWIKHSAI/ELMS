@@ -1,102 +1,127 @@
 [
   {
-    "employeeId": "ADMIN01", "firstName": "System", "lastName": "Admin", "email": "admin@kmit.in",
+    "employeeId": 1, "firstName": "System", "lastName": "Admin", "email": "admin@kmit.in",
     "department": "IT Support", "designation": "System Administrator", "mobile": "9999999999", "gender": "Female",
     "role": "Admin", "leaveBalance": { "cl": 12, "ccl": 0, "al": 0, "lop": 0 }
   },
   {
-    "employeeId": "PRIN01", "firstName": "Maheshwar", "lastName": "Dutta", "email": "principal@kmit.in",
+    "employeeId": 2, "firstName": "Maheshwar", "lastName": "Dutta", "email": "principal@kmit.in",
     "department": "Administration", "designation": "Principal", "mobile": "8888888888", "gender": "Male",
     "role": "Principal", "leaveBalance": { "cl": 12, "ccl": 0, "al": 0, "lop": 0 }
   },
   {
-    "employeeId": "HOD01", "firstName": "Sreenivasa", "lastName": "Rao", "email": "hod.cse@kmit.in",
+    "employeeId": 101, "firstName": "Sreenivasa", "lastName": "Rao", "email": "hod.cse@kmit.in",
     "department": "CSE", "designation": "Head of Department", "mobile": "7777777777", "gender": "Male",
     "role": "HoD", "leaveBalance": { "cl": 12, "ccl": 10, "al": 0, "lop": 0 }
   },
   {
-    "employeeId": "HOD02", "firstName": "Lakshmi", "lastName": "Narayana", "email": "hod.ece@kmit.in",
+    "employeeId": 102, "firstName": "Lakshmi", "lastName": "Narayana", "email": "hod.ece@kmit.in",
     "department": "ECE", "designation": "Head of Department", "mobile": "7777777778", "gender": "Female",
     "role": "HoD", "leaveBalance": { "cl": 12, "ccl": 10, "al": 0, "lop": 0 }
   },
   {
-    "employeeId": "562", "firstName": "A V", "lastName": "NAGIREDDY", "email": "nagireddykmit@gmail.com",
+    "employeeId": 562, "firstName": "A V", "lastName": "NAGIREDDY", "email": "nagireddykmit@gmail.com",
     "department": "CSE", "designation": "Assistant Professor", "mobile": "7989671309", "gender": "Male",
     "role": "Employee", "leaveBalance": { "cl": 12, "ccl": 4, "al": 6, "lop": 0 }
   },
   {
-    "employeeId": "CSE101", "firstName": "Arjun", "lastName": "Reddy", "email": "arjun.r@kmit.in",
+    "employeeId": 2001, "firstName": "Arjun", "lastName": "Reddy", "email": "arjun.r@kmit.in",
     "department": "CSE", "designation": "Assistant Professor", "mobile": "9000012345", "gender": "Male",
     "role": "Employee", "leaveBalance": { "cl": 10, "ccl": 2, "al": 6, "lop": 0 }
   },
   {
-    "employeeId": "CSE102", "firstName": "Priya", "lastName": "Sharma", "email": "priya.s@kmit.in",
+    "employeeId": 2002, "firstName": "Priya", "lastName": "Sharma", "email": "priya.s@kmit.in",
     "department": "CSE", "designation": "Associate Professor", "mobile": "9000012346", "gender": "Female",
     "role": "Employee", "leaveBalance": { "cl": 12, "ccl": 5, "al": 4, "lop": 0 }
   },
   {
-    "employeeId": "IT201", "firstName": "Ravi", "lastName": "Kumar", "email": "ravi.k@kmit.in",
+    "employeeId": 2003, "firstName": "Ravi", "lastName": "Kumar", "email": "ravi.k@kmit.in",
     "department": "IT", "designation": "Assistant Professor", "mobile": "9000012347", "gender": "Male",
     "role": "Employee", "leaveBalance": { "cl": 8, "ccl": 0, "al": 2, "lop": 1 }
   },
   {
-    "employeeId": "ECE301", "firstName": "Sneha", "lastName": "Gupta", "email": "sneha.g@kmit.in",
+    "employeeId": 2004, "firstName": "Sneha", "lastName": "Gupta", "email": "sneha.g@kmit.in",
     "department": "ECE", "designation": "Lab Assistant", "mobile": "9000012348", "gender": "Female",
     "role": "Employee", "leaveBalance": { "cl": 12, "ccl": 1, "al": 6, "lop": 0 }
   },
   {
-    "employeeId": "CSE103", "firstName": "Vikram", "lastName": "Singh", "email": "vikram.s@kmit.in",
+    "employeeId": 2005, "firstName": "Vikram", "lastName": "Singh", "email": "vikram.s@kmit.in",
     "department": "CSE", "designation": "Professor", "mobile": "9000012349", "gender": "Male",
     "role": "Employee", "leaveBalance": { "cl": 12, "ccl": 10, "al": 10, "lop": 0 }
   },
   {
-    "employeeId": "DS401", "firstName": "Ananya", "lastName": "Pandey", "email": "ananya.p@kmit.in",
+    "employeeId": 2006, "firstName": "Ananya", "lastName": "Pandey", "email": "ananya.p@kmit.in",
     "department": "Data Science", "designation": "Assistant Professor", "mobile": "9000012350", "gender": "Female",
     "role": "Employee", "leaveBalance": { "cl": 5, "ccl": 0, "al": 0, "lop": 2 }
   },
   {
-    "employeeId": "CSE104", "firstName": "Rahul", "lastName": "Verma", "email": "rahul.v@kmit.in",
+    "employeeId": 2007, "firstName": "Rahul", "lastName": "Verma", "email": "rahul.v@kmit.in",
     "department": "CSE", "designation": "Assistant Professor", "mobile": "9000012351", "gender": "Male",
     "role": "Employee", "leaveBalance": { "cl": 11, "ccl": 3, "al": 5, "lop": 0 }
   },
   {
-    "employeeId": "IT202", "firstName": "Meera", "lastName": "Iyer", "email": "meera.i@kmit.in",
+    "employeeId": 2008, "firstName": "Meera", "lastName": "Iyer", "email": "meera.i@kmit.in",
     "department": "IT", "designation": "Associate Professor", "mobile": "9000012352", "gender": "Female",
     "role": "Employee", "leaveBalance": { "cl": 12, "ccl": 4, "al": 6, "lop": 0 }
   },
   {
-    "employeeId": "HS501", "firstName": "Amit", "lastName": "Trivedi", "email": "amit.t@kmit.in",
+    "employeeId": 2009, "firstName": "Amit", "lastName": "Trivedi", "email": "amit.t@kmit.in",
     "department": "H&S", "designation": "Assistant Professor", "mobile": "9000012353", "gender": "Male",
     "role": "Employee", "leaveBalance": { "cl": 9, "ccl": 1, "al": 3, "lop": 0 }
   },
   {
-    "employeeId": "ECE302", "firstName": "Kavya", "lastName": "Rao", "email": "kavya.r@kmit.in",
+    "employeeId": 2010, "firstName": "Kavya", "lastName": "Rao", "email": "kavya.r@kmit.in",
     "department": "ECE", "designation": "Professor", "mobile": "9000012354", "gender": "Female",
     "role": "Employee", "leaveBalance": { "cl": 12, "ccl": 8, "al": 12, "lop": 0 }
   },
   {
-    "employeeId": "CSE105", "firstName": "Nikhil", "lastName": "Mehta", "email": "nikhil.m@kmit.in",
+    "employeeId": 2011, "firstName": "Nikhil", "lastName": "Mehta", "email": "nikhil.m@kmit.in",
     "department": "CSE", "designation": "Assistant Professor", "mobile": "9000012355", "gender": "Male",
     "role": "Employee", "leaveBalance": { "cl": 6, "ccl": 0, "al": 2, "lop": 0 }
   },
   {
-    "employeeId": "AIML601", "firstName": "Swati", "lastName": "Desai", "email": "swati.d@kmit.in",
+    "employeeId": 2012, "firstName": "Swati", "lastName": "Desai", "email": "swati.d@kmit.in",
     "department": "AIML", "designation": "Associate Professor", "mobile": "9000012356", "gender": "Female",
     "role": "Employee", "leaveBalance": { "cl": 10, "ccl": 2, "al": 5, "lop": 0 }
   },
   {
-    "employeeId": "IT203", "firstName": "Karan", "lastName": "Johar", "email": "karan.j@kmit.in",
+    "employeeId": 2013, "firstName": "Karan", "lastName": "Johar", "email": "karan.j@kmit.in",
     "department": "IT", "designation": "Assistant Professor", "mobile": "9000012357", "gender": "Male",
     "role": "Employee", "leaveBalance": { "cl": 12, "ccl": 5, "al": 6, "lop": 0 }
   },
   {
-    "employeeId": "HS502", "firstName": "Pooja", "lastName": "Hegde", "email": "pooja.h@kmit.in",
+    "employeeId": 2014, "firstName": "Pooja", "lastName": "Hegde", "email": "pooja.h@kmit.in",
     "department": "H&S", "designation": "Assistant Professor", "mobile": "9000012358", "gender": "Female",
     "role": "Employee", "leaveBalance": { "cl": 8, "ccl": 0, "al": 4, "lop": 0 }
   },
   {
-    "employeeId": "CSE106", "firstName": "Varun", "lastName": "Dhawan", "email": "varun.d@kmit.in",
+    "employeeId": 2015, "firstName": "Varun", "lastName": "Dhawan", "email": "varun.d@kmit.in",
     "department": "CSE", "designation": "Lab Assistant", "mobile": "9000012359", "gender": "Male",
     "role": "Employee", "leaveBalance": { "cl": 12, "ccl": 2, "al": 0, "lop": 0 }
+  },
+  {
+    "employeeId": 2016, "firstName": "Samantha", "lastName": "Ruth", "email": "samantha.r@kmit.in",
+    "department": "ECE", "designation": "Assistant Professor", "mobile": "9000012360", "gender": "Female",
+    "role": "Employee", "leaveBalance": { "cl": 11, "ccl": 4, "al": 6, "lop": 0 }
+  },
+  {
+    "employeeId": 2017, "firstName": "Vijay", "lastName": "Devarakonda", "email": "vijay.d@kmit.in",
+    "department": "Data Science", "designation": "Associate Professor", "mobile": "9000012361", "gender": "Male",
+    "role": "Employee", "leaveBalance": { "cl": 9, "ccl": 1, "al": 3, "lop": 0 }
+  },
+  {
+    "employeeId": 2018, "firstName": "Rashmika", "lastName": "Mandanna", "email": "rashmika.m@kmit.in",
+    "department": "AIML", "designation": "Assistant Professor", "mobile": "9000012362", "gender": "Female",
+    "role": "Employee", "leaveBalance": { "cl": 12, "ccl": 6, "al": 6, "lop": 0 }
+  },
+  {
+    "employeeId": 2019, "firstName": "Allu", "lastName": "Arjun", "email": "allu.a@kmit.in",
+    "department": "CSE", "designation": "Professor", "mobile": "9000012363", "gender": "Male",
+    "role": "Employee", "leaveBalance": { "cl": 12, "ccl": 10, "al": 10, "lop": 0 }
+  },
+  {
+    "employeeId": 2020, "firstName": "Tamanna", "lastName": "Bhatia", "email": "tamanna.b@kmit.in",
+    "department": "IT", "designation": "Assistant Professor", "mobile": "9000012364", "gender": "Female",
+    "role": "Employee", "leaveBalance": { "cl": 10, "ccl": 3, "al": 5, "lop": 0 }
   }
 ]

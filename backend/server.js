@@ -225,6 +225,69 @@ app.get('/api/users/search', async (req, res) => {
   }
 });
 
+
+const AdjustmentRequest = require('./models/AdjustmentRequest');
+
+// --- 9. ADJUSTMENT MODULE ---
+
+// A. Get list of colleagues (for dropdown)
+app.get('/api/users/list', async (req, res) => {
+  try {
+    const users = await User.find({ role: { $in: ['Employee', 'HoD'] } })
+      .select('employeeId firstName lastName department');
+    res.json(users);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// B. Create Adjustment Request
+app.post('/api/adjustments/create', async (req, res) => {
+  try {
+    const newRequest = new AdjustmentRequest(req.body);
+    await newRequest.save();
+    res.json({ message: "Adjustment Request Sent!" });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// C. Get Incoming Requests (Requests sent TO me)
+app.get('/api/adjustments/incoming/:id', async (req, res) => {
+  try {
+    const requests = await AdjustmentRequest.find({ targetEmployeeId: req.params.id }).sort({ createdAt: -1 });
+    
+    // Attach Requester Names manually
+    const enriched = await Promise.all(requests.map(async (req) => {
+      const user = await User.findOne({ employeeId: req.requesterId });
+      return { ...req.toObject(), requesterName: user ? `${user.firstName} ${user.lastName}` : req.requesterId };
+    }));
+    
+    res.json(enriched);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// D. Get Outgoing Requests (Requests sent BY me)
+app.get('/api/adjustments/outgoing/:id', async (req, res) => {
+  try {
+    const requests = await AdjustmentRequest.find({ requesterId: req.params.id }).sort({ createdAt: -1 });
+    
+    // Attach Target Names manually
+    const enriched = await Promise.all(requests.map(async (req) => {
+      const user = await User.findOne({ employeeId: req.targetEmployeeId });
+      return { ...req.toObject(), targetName: user ? `${user.firstName} ${user.lastName}` : req.targetEmployeeId };
+    }));
+    
+    res.json(enriched);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// E. Accept/Reject Request
+app.post('/api/adjustments/respond', async (req, res) => {
+  try {
+    const { requestId, status } = req.body;
+    await AdjustmentRequest.findByIdAndUpdate(requestId, { status });
+    res.json({ message: `Request ${status}` });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+
 // --- Start Server ---
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);

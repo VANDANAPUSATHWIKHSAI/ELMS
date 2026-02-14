@@ -1,11 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { 
   ClipboardList, Calendar as CalendarIcon, 
   ChevronLeft, ChevronRight 
 } from 'lucide-react';
 
 const EmployeeDashboard = () => {
+  const { user } = useAuth(); // Get logged-in user info
+  const [leaveBalance, setLeaveBalance] = useState({ cl: 0, ccl: 0, al: 0 });
   const kmitOrange = "#F17F08";
+
+  // --- 1. FETCH REAL-TIME BALANCE ---
+  useEffect(() => {
+    const fetchBalance = async () => {
+      if (!user?.employeeId) return;
+      try {
+        const res = await fetch(`http://localhost:5000/api/user/${user.employeeId}`);
+        const data = await res.json();
+        if (res.ok && data.leaveBalance) {
+          setLeaveBalance(data.leaveBalance);
+        }
+      } catch (err) {
+        console.error("Failed to fetch balance", err);
+      }
+    };
+
+    fetchBalance();
+  }, [user]);
 
   // --- CALENDAR LOGIC ---
   const [viewDate, setViewDate] = useState(new Date());
@@ -28,13 +49,12 @@ const EmployeeDashboard = () => {
             <h1 style={styles.greeting}>Dashboard</h1>
             <p style={styles.subtitle}>Welcome back! Here is your attendance overview.</p>
           </div>
-          {/* Removed Notification and Avatar section here */}
         </header>
 
         {/* DASHBOARD GRID */}
         <div style={styles.featureGrid}>
           
-          {/* AVAILABLE LEAVES CARD */}
+          {/* AVAILABLE LEAVES CARD (NOW REAL DATA) */}
           <div style={styles.solidCard}>
             <div style={styles.cardHeader}>
               <ClipboardList size={22} color={kmitOrange} />
@@ -43,15 +63,16 @@ const EmployeeDashboard = () => {
             <div style={styles.leaveStats}>
               <div style={styles.statBox}>
                 <span style={styles.statLabel}>CL (Casual Leave)</span>
-                <span style={styles.statValue}>12</span>
+                {/* Display Real Balance */}
+                <span style={styles.statValue}>{leaveBalance.cl}</span>
               </div>
               <div style={styles.statBox}>
                 <span style={styles.statLabel}>CCL (Compensatory CL)</span>
-                <span style={styles.statValue}>04</span>
+                <span style={styles.statValue}>{leaveBalance.ccl}</span>
               </div>
               <div style={styles.statBox}>
                 <span style={styles.statLabel}>AL (Academic Leaves)</span>
-                <span style={styles.statValue}>06</span>
+                <span style={styles.statValue}>{leaveBalance.al}</span>
               </div>
             </div>
           </div>

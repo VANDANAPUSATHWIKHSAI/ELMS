@@ -4,6 +4,9 @@ import { AuthProvider } from "./context/AuthContext";
 import Login from "./components/login";
 import Layout from "./components/Layout"; // <--- Import Layout
 import EmployeeSearch from "./components/search/EmployeeSearch";
+import Adjustments from "./components/adjustments/Adjustments";
+import HodDashboard from './components/dashboards/HodDashboard'; // Import at the top
+
 
 // Pages
 import Home from "./components/home";
@@ -24,14 +27,22 @@ function App() {
         <Routes>
           {/* Public Route */}
           <Route path="/" element={<Login />} />
-
+          {/* HoD Route - Protected */}
+          <Route 
+            path="/hod-dashboard" 
+            element={
+              <ProtectedRoute role="HoD">
+                <HodDashboard />
+              </ProtectedRoute>
+            } 
+          />
           {/* PROTECTED ROUTES (Wrapped in Layout) */}
           <Route element={<Layout />}>
             <Route path="/home" element={<Home />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/leaves" element={<ApplyLeave />} />
             <Route path="/search" element={<EmployeeSearch />} />
-            <Route path="/adjustments" element={<Placeholder title="Adjustments" />} />
+            <Route path="/adjustments" element={<Adjustments />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" />} />
