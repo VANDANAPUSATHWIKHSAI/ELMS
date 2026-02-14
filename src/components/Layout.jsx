@@ -26,6 +26,7 @@ const Layout = () => {
       <Sidebar 
         isMobile={isMobile} 
         isOpen={isSidebarOpen} 
+        onToggle={() => setIsSidebarOpen(!isSidebarOpen)} /* <--- ADDED THIS FIX */
         onClose={() => setIsSidebarOpen(false)} 
       />
 
@@ -35,7 +36,7 @@ const Layout = () => {
         {/* GLOBAL HEADER */}
         <div style={styles.topBar}>
           <div style={styles.leftSection}>
-            {/* Hamburger removed for desktop as per request */}
+             {/* Space for future items if needed */}
           </div>
           
           {/* Right: Enlarge Clickable Logo */}
@@ -62,7 +63,7 @@ const styles = {
     display: 'flex', 
     height: '100vh', 
     width: '100vw', 
-    background: '#f8fafc', // Matching background for seamless look
+    background: '#f8fafc', 
     overflow: 'hidden' 
   },
   mainContent: { 
@@ -72,16 +73,16 @@ const styles = {
     height: '100%', 
     overflow: 'hidden',
     position: 'relative',
-    borderLeft: 'none' // REMOVED the vertical separation line 
+    borderLeft: 'none' 
   },
   topBar: {
-    height: '100px', // Larger height for a prominent logo
+    height: '100px', 
     padding: '0 40px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between', 
-    background: 'transparent', // REMOVED solid background to eliminate the line
-    borderBottom: 'none', // REMOVED the horizontal separation line 
+    background: 'transparent', 
+    borderBottom: 'none', 
     flexShrink: 0
   },
   leftSection: {
@@ -98,14 +99,14 @@ const styles = {
     ':hover': { transform: 'scale(1.05)' }
   },
   headerLogo: {
-    height: '150px', // Enlarged further for high visibility
+    height: '80px', 
     width: 'auto',
     objectFit: 'contain'
   },
   contentScroll: { 
     flex: 1, 
     overflowY: 'auto', 
-    padding: '0 40px 40px 40px' // Adjusted padding for a cleaner grid alignment
+    padding: '0 40px 40px 40px' 
   } 
 };
 

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { AuthProvider } from "./context/AuthContext";
 import Login from "./components/login";
 import Layout from "./components/Layout"; // <--- Import Layout
+import EmployeeSearch from "./components/search/EmployeeSearch";
 
 // Pages
 import Home from "./components/home";
@@ -29,7 +30,7 @@ function App() {
             <Route path="/home" element={<Home />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/leaves" element={<ApplyLeave />} />
-            <Route path="/search" element={<Placeholder title="Employee Search" />} />
+            <Route path="/search" element={<EmployeeSearch />} />
             <Route path="/adjustments" element={<Placeholder title="Adjustments" />} />
           </Route>
 
