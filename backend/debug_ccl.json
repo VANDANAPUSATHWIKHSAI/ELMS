@@ -1,0 +1,12 @@
+{
+  "leaveBalance": {
+    "cl": 5,
+    "ccl": 0,
+    "al": 4,
+    "lop": 0
+  },
+  "netClLedger": 0,
+  "netCclLedger": 0,
+  "clLedgerEntriesCount": 4,
+  "cclLedgerEntriesCount": 0
+}

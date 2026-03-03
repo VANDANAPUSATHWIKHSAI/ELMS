@@ -1,3 +1,4 @@
+import { apiFetch } from "../utils/api";
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from "../context/AuthContext"; 
 import { 
@@ -49,12 +50,13 @@ const Profile = () => {
     const fetchProfile = async () => {
       if (!authUser?.employeeId) return;
       try {
-        const res = await fetch(`http://localhost:5000/api/user/${authUser.employeeId}`);
+        const res = await apiFetch(`http://localhost:5000/api/user/${authUser.employeeId}`);
         const data = await res.json();
         if (res.ok) {
           // Format dates for inputs (YYYY-MM-DD)
           const formatDate = (d) => d ? new Date(d).toISOString().split('T')[0] : "";
           setFormData({ ...data, dob: formatDate(data.dob), doj: formatDate(data.doj) });
+          if (data.profileImg) setProfileImg(data.profileImg);
         }
       } catch (err) { console.error(err); } 
       finally { setLoading(false); }
@@ -70,14 +72,23 @@ const Profile = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     try {
-      await fetch(`http://localhost:5000/api/user/${authUser.employeeId}`, {
+      const res = await apiFetch(`http://localhost:5000/api/user/${authUser.employeeId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({...formData, profileImg: profileImg || undefined })
       });
-      alert("Updated Successfully!");
-      setIsEditing(false);
-    } catch (err) { alert("Update failed"); }
+      
+      const data = await res.json();
+      if (res.ok) {
+        alert("Profile Updated Successfully!");
+        setIsEditing(false);
+      } else {
+        alert(data.message || "Update failed");
+      }
+    } catch (err) { 
+      console.error(err);
+      alert("Network error. Please try again."); 
+    }
   };
 
   // --- 3. PHOTO LOGIC (From Old Code) ---
@@ -88,6 +99,7 @@ const Profile = () => {
       reader.onloadend = () => {
         setProfileImg(reader.result);
         setShowPhotoOptions(false);
+        setIsEditing(true);
       };
       reader.readAsDataURL(file);
     }
@@ -112,6 +124,7 @@ const Profile = () => {
     setProfileImg(canvas.toDataURL('image/png'));
     stopCamera();
     setShowPhotoOptions(false);
+    setIsEditing(true); // Enable save button
   };
 
   const stopCamera = () => {
@@ -177,27 +190,27 @@ const Profile = () => {
         {/* BOTTOM SECTION: FORM GRID */}
         <form style={styles.infoGrid}>
             <ProfileField label="Employee ID" name="employeeId" value={formData.employeeId} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
-            <ProfileField label="Date of Birth" name="dob" type="date" value={formData.dob} isReadOnly={false} isEditing={isEditing} onChange={handleInputChange} />
+            <ProfileField label="Date of Birth" name="dob" type="date" value={formData.dob} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
             
-            <ProfileField label="First Name" name="firstName" value={formData.firstName} isReadOnly={false} isEditing={isEditing} onChange={handleInputChange} />
+            <ProfileField label="First Name" name="firstName" value={formData.firstName} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
             <ProfileField label="Date of Joining" name="doj" type="date" value={formData.doj} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
             
-            <ProfileField label="Last Name" name="lastName" value={formData.lastName} isReadOnly={false} isEditing={isEditing} onChange={handleInputChange} />
+            <ProfileField label="Last Name" name="lastName" value={formData.lastName} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
             <ProfileField label="Mobile" name="mobile" value={formData.mobile} isReadOnly={false} isEditing={isEditing} onChange={handleInputChange} />
             
             <ProfileField label="Email" name="email" value={formData.email} isReadOnly={false} isEditing={isEditing} onChange={handleInputChange} />
             <ProfileField label="Department" name="department" value={formData.department} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
             
-            <ProfileField label="Designation" name="designation" value={formData.designation} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
+            <ProfileField label="Designation" name="designation" value={formData.designation} isReadOnly={false} isEditing={isEditing} onChange={handleInputChange} />
             <ProfileField label="Gender" name="gender" value={formData.gender} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
             
-            <ProfileField label="Aadhaar" name="aadhaar" value={formData.aadhaar} isReadOnly={false} isEditing={isEditing} onChange={handleInputChange} />
-            <ProfileField label="PAN" name="pan" value={formData.pan} isReadOnly={false} isEditing={isEditing} onChange={handleInputChange} />
+            <ProfileField label="Aadhaar" name="aadhaar" value={formData.aadhaar} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
+            <ProfileField label="PAN" name="pan" value={formData.pan} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
             
-            <ProfileField label="JNTU UID" name="jntuUid" value={formData.jntuUid} isReadOnly={false} isEditing={isEditing} onChange={handleInputChange} />
-            <ProfileField label="AICTE ID" name="aicteId" value={formData.aicteId} isReadOnly={false} isEditing={isEditing} onChange={handleInputChange} />
+            <ProfileField label="JNTU UID" name="jntuUid" value={formData.jntuUid} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
+            <ProfileField label="AICTE ID" name="aicteId" value={formData.aicteId} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
             
-            <div style={{gridColumn: 'span 2'}}>
+            <div style={{gridColumn: window.innerWidth <= 768 ? 'span 1' : 'span 2'}}>
               <ProfileField label="Address" name="address" value={formData.address} isReadOnly={false} isEditing={isEditing} onChange={handleInputChange} />
             </div>
         </form>
@@ -252,45 +265,54 @@ const Profile = () => {
 };
 
 const styles = {
-  // Container allows Layout to scroll
   container: { width: '100%', maxWidth: '1000px', margin: '0 auto', paddingBottom: '40px' },
+  header: { 
+    display: 'flex', 
+    flexDirection: window.innerWidth <= 768 ? 'column' : 'row',
+    justifyContent: 'space-between', 
+    alignItems: window.innerWidth <= 768 ? 'flex-start' : 'center', 
+    marginBottom: '30px',
+    gap: '20px'
+  },
+  welcomeText: { margin: 0, fontSize: window.innerWidth <= 768 ? '24px' : '28px', color: '#1e293b', fontWeight: '700' },
   
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' },
-  welcomeText: { margin: 0, fontSize: '28px', color: '#1e293b', fontWeight: '700' },
-  
-  // Buttons
   editBtn: { display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', backgroundColor: '#d1551b', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', transition: 'all 0.2s' },
   saveBtn: { display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', backgroundColor: '#22c55e', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' },
   cancelBtn: { display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' },
 
-  // Card
-  profileCard: { background: '#fff', borderRadius: '20px', padding: '40px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' },
+  profileCard: { background: '#fff', borderRadius: '20px', padding: window.innerWidth <= 768 ? '20px' : '40px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' },
   
-  // Top Section (Avatar)
-  profileTop: { display: 'flex', alignItems: 'center', marginBottom: '30px' },
+  profileTop: { 
+    display: 'flex', 
+    flexDirection: window.innerWidth <= 768 ? 'column' : 'row',
+    alignItems: 'center', 
+    textAlign: window.innerWidth <= 768 ? 'center' : 'left',
+    marginBottom: '30px' 
+  },
   avatarWrapper: { position: 'relative' },
-  avatarCircle: { width: '100px', height: '100px', borderRadius: '50%', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '3px solid #e2e8f0', overflow: 'hidden' },
+  avatarCircle: { width: window.innerWidth <= 768 ? '80px' : '100px', height: window.innerWidth <= 768 ? '80px' : '100px', borderRadius: '50%', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '3px solid #e2e8f0', overflow: 'hidden' },
   profilePreview: { width: '100%', height: '100%', objectFit: 'cover' },
   cameraIcon: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#d1551b', padding: '6px', borderRadius: '50%', border: '2px solid #fff', display: 'flex', cursor: 'pointer' },
   
   divider: { height: '1px', backgroundColor: '#e2e8f0', margin: '0 0 30px 0' },
   
-  // Form Grid
-  infoGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' },
+  infoGrid: { 
+    display: 'grid', 
+    gridTemplateColumns: window.innerWidth <= 768 ? '1fr' : '1fr 1fr', 
+    gap: '20px' 
+  },
   inputGroup: { display: 'flex', flexDirection: 'column', gap: '8px' },
-  fieldLabel: { fontSize: '12px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' },
+  fieldLabel: { fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' },
   profileInput: { padding: '12px 16px', borderRadius: '10px', fontSize: '14px', fontWeight: '500', outline: 'none', transition: 'all 0.2s', width: '100%', boxSizing: 'border-box' },
 
-  // Modal Styles
   modalOverlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, backdropFilter: 'blur(4px)' },
-  modal: { background: '#fff', padding: '30px', borderRadius: '20px', width: '400px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' },
+  modal: { background: '#fff', padding: window.innerWidth <= 768 ? '20px' : '30px', borderRadius: '20px', width: window.innerWidth <= 768 ? '90%' : '400px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' },
   modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' },
-  modalTitle: { margin: 0, fontSize: '20px', color: '#1e293b', fontWeight: '700' },
+  modalTitle: { margin: 0, fontSize: '18px', color: '#1e293b', fontWeight: '700' },
   modalBody: { display: 'flex', flexDirection: 'column', gap: '16px' },
   optionBtn: { display: 'flex', alignItems: 'center', gap: '16px', padding: '18px', borderRadius: '14px', border: '1px solid #e2e8f0', background: '#f8fafc', cursor: 'pointer', transition: 'all 0.2s ease', width: '100%' },
-  optionText: { fontSize: '16px', fontWeight: '600', color: '#334155' }, 
+  optionText: { fontSize: '15px', fontWeight: '600', color: '#334155' }, 
   
-  // Camera Specific
   cameraContainer: { textAlign: 'center' },
   videoStream: { width: '100%', borderRadius: '12px', marginBottom: '20px', backgroundColor: '#000' },
   cameraControls: { display: 'flex', gap: '12px', justifyContent: 'center' },

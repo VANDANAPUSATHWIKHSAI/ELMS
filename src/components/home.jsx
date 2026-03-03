@@ -6,7 +6,7 @@ import { Navigate } from 'react-router-dom';
 import EmployeeDashboard from './dashboards/EmployeeDashboard';
 import HodDashboard from './dashboards/HodDashboard';
 import PrincipalDashboard from './dashboards/PrincipalDashboard';
-import AdminDashboard from './dashboards/AdminDashboard';
+import AdminDashboard from './admin/AdminDashboard';
 
 const Home = () => {
   const { user } = useAuth();

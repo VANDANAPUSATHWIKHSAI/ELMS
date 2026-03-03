@@ -1,0 +1,50 @@
+[
+  {
+    "_id": "69a48687ff07c2fab9dbaacb",
+    "employeeId": "2014",
+    "transactionType": "Debit",
+    "leaveType": "CL",
+    "amount": -3,
+    "reason": "Leave Application (Priority Deduct) #69a48687ff07c2fab9dbaac9",
+    "referenceId": "69a48687ff07c2fab9dbaac9",
+    "balanceAfter": 5,
+    "date": "2026-03-01T18:33:43.209Z",
+    "__v": 0
+  },
+  {
+    "_id": "69a488afbfbbb64dd7c3ddab",
+    "employeeId": "2014",
+    "transactionType": "Credit",
+    "leaveType": "CL",
+    "amount": 3,
+    "reason": "Leave Cancelled (Refund) #69a48687ff07c2fab9dbaac9",
+    "referenceId": "69a48687ff07c2fab9dbaac9",
+    "balanceAfter": 8,
+    "date": "2026-03-01T18:42:55.931Z",
+    "__v": 0
+  },
+  {
+    "_id": "69a488c4bfbbb64dd7c3ddbc",
+    "employeeId": "2014",
+    "transactionType": "Debit",
+    "leaveType": "CL",
+    "amount": -1,
+    "reason": "Leave Application (Priority Deduct) #69a488c4bfbbb64dd7c3ddba",
+    "referenceId": "69a488c4bfbbb64dd7c3ddba",
+    "balanceAfter": 7,
+    "date": "2026-03-01T18:43:16.563Z",
+    "__v": 0
+  },
+  {
+    "_id": "69a488d4bfbbb64dd7c3ddc5",
+    "employeeId": "2014",
+    "transactionType": "Credit",
+    "leaveType": "CL",
+    "amount": 1,
+    "reason": "Leave Cancelled (Refund) #69a488c4bfbbb64dd7c3ddba",
+    "referenceId": "69a488c4bfbbb64dd7c3ddba",
+    "balanceAfter": 8,
+    "date": "2026-03-01T18:43:32.990Z",
+    "__v": 0
+  }
+]

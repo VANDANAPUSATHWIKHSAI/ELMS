@@ -1,3 +1,4 @@
+import { apiFetch } from "../../utils/api";
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Shuffle, ArrowRight, CheckCircle, XCircle, Search, User } from 'lucide-react';
@@ -29,12 +30,12 @@ const Adjustments = () => {
   }, [activeTab]);
 
   const fetchIncoming = async () => {
-    const res = await fetch(`http://localhost:5000/api/adjustments/incoming/${user.employeeId}`);
+    const res = await apiFetch(`http://localhost:5000/api/adjustments/incoming/${user.employeeId}`);
     if (res.ok) setIncoming(await res.json());
   };
 
   const fetchOutgoing = async () => {
-    const res = await fetch(`http://localhost:5000/api/adjustments/outgoing/${user.employeeId}`);
+    const res = await apiFetch(`http://localhost:5000/api/adjustments/outgoing/${user.employeeId}`);
     if (res.ok) setOutgoing(await res.json());
   };
 
@@ -54,7 +55,7 @@ const Adjustments = () => {
   const performSearch = async () => {
     try {
       // Re-using the existing Employee Search API
-      const res = await fetch(`http://localhost:5000/api/users/search?query=${encodeURIComponent(searchTerm)}`);
+      const res = await apiFetch(`http://localhost:5000/api/users/search?query=${encodeURIComponent(searchTerm)}`);
       if (res.ok) {
         const data = await res.json();
         // Filter out self from results
@@ -80,7 +81,7 @@ const Adjustments = () => {
     if (!selectedColleague) return alert("Please search and select a colleague.");
 
     try {
-      const res = await fetch('http://localhost:5000/api/adjustments/create', {
+      const res = await apiFetch('http://localhost:5000/api/adjustments/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -101,7 +102,7 @@ const Adjustments = () => {
 
   const handleRespond = async (requestId, status) => {
     try {
-      const res = await fetch('http://localhost:5000/api/adjustments/respond', {
+      const res = await apiFetch('http://localhost:5000/api/adjustments/respond', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ requestId, status })

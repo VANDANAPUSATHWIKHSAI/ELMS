@@ -1,3 +1,4 @@
+import { apiFetch } from "../utils/api";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom"; 
 import { useAuth } from "../context/AuthContext"; // <--- Import Auth
@@ -22,7 +23,7 @@ const Login = () => {
     e.preventDefault();
     try {
       // Call the Backend API
-      const response = await fetch('http://localhost:5000/api/auth/login', {
+      const response = await apiFetch('http://localhost:5000/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(credentials)
@@ -31,7 +32,7 @@ const Login = () => {
       const data = await response.json();
 
       if (response.ok) {
-        login(data.user); // Save user to memory
+        login(data.user, data.token); // Save user and token to memory
         navigate("/home");
       } else {
         setError(data.message || "Login failed");
@@ -75,13 +76,21 @@ const Login = () => {
         <form style={styles.form} onSubmit={handleLogin}>
           {error && <div style={{color: 'red', textAlign:'center', fontSize: '14px'}}>{error}</div>}
           <div style={styles.inputWrapper}>
-            <label style={styles.label}>Employee ID</label>
-            <input type="text" placeholder="Enter Employee ID" style={styles.inputField} value={credentials.employeeId} onChange={handleChange} required />
+            <label style={styles.label}>Employee ID / Email</label>
+            <input type="text" placeholder="Enter Employee ID or Email" style={styles.inputField} value={credentials.employeeId} onChange={handleChange} required />
           </div>
           <div style={styles.inputWrapper}>
             <label style={styles.label}>Password</label>
             <input type="password" placeholder="Enter Password" style={styles.inputField} value={credentials.password} onChange={handleChange} required />
-            <div style={styles.forgotContainer}><a href="#" style={styles.forgotLink}>Forgot Password?</a></div>
+            <div style={styles.forgotContainer}>
+              <button 
+                type="button" 
+                onClick={() => navigate(`/forgot-password?email=${credentials.employeeId}`)} 
+                style={{...styles.forgotLink, background: 'none', border: 'none', cursor: 'pointer', padding: 0}}
+              >
+                Forgot Password?
+              </button>
+            </div>
           </div>
           <button type="submit" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} style={{...styles.submitBtn, backgroundColor: isHovered ? '#D15D00' : '#F17F08'}}>Log In</button>
         </form>

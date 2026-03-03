@@ -63,7 +63,7 @@ const styles = {
     display: 'flex', 
     height: '100vh', 
     width: '100vw', 
-    background: '#f8fafc', 
+    background: 'var(--bg-main)', 
     overflow: 'hidden' 
   },
   mainContent: { 
@@ -72,18 +72,18 @@ const styles = {
     flexDirection: 'column', 
     height: '100%', 
     overflow: 'hidden',
-    position: 'relative',
-    borderLeft: 'none' 
+    position: 'relative'
   },
   topBar: {
-    height: '100px', 
-    padding: '0 40px',
+    height: window.innerWidth <= 768 ? '70px' : '100px', 
+    padding: window.innerWidth <= 768 ? '0 20px' : '0 40px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between', 
     background: 'transparent', 
-    borderBottom: 'none', 
-    flexShrink: 0
+    flexShrink: 0,
+    position: 'relative',
+    zIndex: 10
   },
   leftSection: {
     display: 'flex',
@@ -95,18 +95,17 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     padding: '10px',
-    transition: 'transform 0.2s',
-    ':hover': { transform: 'scale(1.05)' }
+    transition: 'transform 0.2s'
   },
   headerLogo: {
-    height: '80px', 
+    height: window.innerWidth <= 768 ? '50px' : '80px', 
     width: 'auto',
     objectFit: 'contain'
   },
   contentScroll: { 
     flex: 1, 
     overflowY: 'auto', 
-    padding: '0 40px 40px 40px' 
+    padding: window.innerWidth <= 768 ? '0 15px 100px 15px' : '0 40px 40px 40px' 
   } 
 };
 
