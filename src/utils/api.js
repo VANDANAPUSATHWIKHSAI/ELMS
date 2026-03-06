@@ -7,10 +7,17 @@ export const apiFetch = async (url, options = {}) => {
 
   const token = localStorage.getItem('token');
   const headers = {
-    'Content-Type': 'application/json',
     ...options.headers,
     ...(token ? { Authorization: `Bearer ${token}` } : {})
   };
+
+  // Only set application/json if the body is NOT FormData 
+  // (Let the browser set the multipart/form-data with boundary)
+  if (options.body && !(options.body instanceof FormData)) {
+    if (!headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json';
+    }
+  }
 
   const response = await fetch(finalUrl, { ...options, headers });
   

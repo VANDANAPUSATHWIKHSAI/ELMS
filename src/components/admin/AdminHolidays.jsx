@@ -11,10 +11,13 @@ const AdminHolidays = () => {
 
   const [formData, setFormData] = useState({
     name: '',
-    date: '',
+    startDate: '',
+    endDate: '',
     type: 'Festival'
   });
 
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
 
   const showToast = (message, type = 'success') => {
@@ -25,7 +28,8 @@ const AdminHolidays = () => {
   const fetchHolidays = async () => {
     try {
       setLoading(true);
-      const res = await apiFetch('http://localhost:5000/api/holidays'); // Public endpoint for getting holidays
+      const host = window.location.hostname;
+      const res = await apiFetch(`http://${host}:5000/api/holidays`); // Public endpoint for getting holidays
       if (res.ok) setHolidays(await res.json());
     } catch (err) {
       showToast('Error loading holidays', 'error');
@@ -39,7 +43,7 @@ const AdminHolidays = () => {
   const handleInputChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const resetForm = () => {
-    setFormData({ name: '', date: '', type: 'Festival' });
+    setFormData({ name: '', startDate: '', endDate: '', type: 'Festival' });
     setEditMode(false);
     setCurrentId(null);
   };
@@ -47,11 +51,15 @@ const AdminHolidays = () => {
   const openAddModal = () => { resetForm(); setShowModal(true); };
 
   const openEditModal = (hol) => {
-    // Format date for <input type="date">
-    const d = new Date(hol.date);
-    const dateStr = d.toISOString().split('T')[0];
+    const sDateStr = new Date(hol.startDate).toISOString().split('T')[0];
+    const eDateStr = new Date(hol.endDate).toISOString().split('T')[0];
 
-    setFormData({ name: hol.name, date: dateStr, type: hol.type || 'Festival' });
+    setFormData({ 
+      name: hol.name, 
+      startDate: sDateStr, 
+      endDate: eDateStr, 
+      type: hol.type || 'Festival' 
+    });
     setCurrentId(hol._id);
     setEditMode(true);
     setShowModal(true);
@@ -60,7 +68,10 @@ const AdminHolidays = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const url = editMode ? `http://localhost:5000/api/admin/holidays/${currentId}` : `http://localhost:5000/api/admin/holidays`;
+      const host = window.location.hostname;
+      const baseUrl = `http://${host}:5000/api/admin/holidays`;
+      const url = editMode ? `${baseUrl}/${currentId}` : baseUrl;
+      
       const res = await apiFetch(url, {
         method: editMode ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -78,20 +89,46 @@ const AdminHolidays = () => {
     } catch (err) { showToast('Server connection failed', 'error'); }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this holiday?')) return;
+  const handleDelete = async () => {
+    if (!deletingId) return;
     try {
-      const res = await apiFetch(`http://localhost:5000/api/admin/holidays/${id}`, { method: 'DELETE' });
+      setLoading(true);
+      const host = window.location.hostname;
+      const res = await apiFetch(`http://${host}:5000/api/admin/holidays/${deletingId}`, { method: 'DELETE' });
+      const data = await res.json();
+      
       if (res.ok) {
-        showToast("Holiday Deleted", 'success');
-        fetchHolidays();
-      } else { showToast('Failed to delete', 'error'); }
-    } catch (err) { showToast('Server error during deletion', 'error'); }
+        showToast(data.message || "Holiday Deleted", 'success');
+        setShowDeleteModal(false);
+        setDeletingId(null);
+        await fetchHolidays();
+      } else { 
+        showToast(data.message || 'Failed to delete', 'error'); 
+        console.error("Delete failed:", data);
+      }
+    } catch (err) { 
+      showToast('Server error during deletion', 'error'); 
+      console.error("Delete exception:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const confirmDelete = (id) => {
+    setDeletingId(id);
+    setShowDeleteModal(true);
   };
 
   // Helper to format display date
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', weekday: 'short' });
+    return new Date(dateString).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  const formatRange = (start, end) => {
+    const s = formatDate(start);
+    const e = formatDate(end);
+    if (s === e) return s;
+    return `${s} — ${e}`;
   };
 
   return (
@@ -119,7 +156,7 @@ const AdminHolidays = () => {
             <table style={styles.table}>
               <thead>
                 <tr style={styles.trHeading}>
-                  <th style={styles.th}>Date</th>
+                  <th style={styles.th}>Date / Period</th>
                   <th style={styles.th}>Holiday Name</th>
                   <th style={styles.th}>Type</th>
                   <th style={styles.th}>Actions</th>
@@ -128,13 +165,13 @@ const AdminHolidays = () => {
               <tbody>
                 {holidays.map(hol => (
                   <tr key={hol._id} style={styles.tr}>
-                    <td style={styles.td}><strong>{formatDate(hol.date)}</strong></td>
+                    <td style={styles.td}><strong>{formatRange(hol.startDate, hol.endDate)}</strong></td>
                     <td style={styles.td}>{hol.name}</td>
                     <td style={styles.td}>
                       <span style={{
                         ...styles.badge, 
-                        background: hol.type === 'National' ? '#fee2e2' : hol.type === 'Optional' ? '#fef3c7' : hol.type === 'Summer Holidays' ? '#dcfce7' : '#e0e7ff',
-                        color: hol.type === 'National' ? '#ef4444' : hol.type === 'Optional' ? '#d97706' : hol.type === 'Summer Holidays' ? '#16a34a' : '#4f46e5'
+                        background: hol.type === 'National' ? '#fee2e2' : hol.type === 'Optional' ? '#fef3c7' : hol.type === 'Summer Holidays' ? '#dcfce7' : '#f1f5f9',
+                        color: hol.type === 'National' ? '#ef4444' : hol.type === 'Optional' ? '#d97706' : hol.type === 'Summer Holidays' ? '#16a34a' : '#64748b'
                       }}>
                         {hol.type}
                       </span>
@@ -142,7 +179,7 @@ const AdminHolidays = () => {
                     <td style={styles.td}>
                       <div style={styles.actionBlock}>
                         <button onClick={() => openEditModal(hol)} style={styles.iconBtnEdit} title="Edit"><Edit2 size={16} /></button>
-                        <button onClick={() => handleDelete(hol._id)} style={styles.iconBtnDel} title="Delete"><Trash2 size={16} /></button>
+                        <button onClick={() => confirmDelete(hol._id)} style={styles.iconBtnDel} title="Delete"><Trash2 size={16} /></button>
                       </div>
                     </td>
                   </tr>
@@ -167,17 +204,58 @@ const AdminHolidays = () => {
             <form onSubmit={handleSubmit} style={styles.form}>
               <div style={styles.inputGroup}>
                  <label style={styles.label}>Holiday Name *</label>
-                 <input required name="name" value={formData.name} onChange={handleInputChange} style={styles.input} placeholder="e.g. Diwali" />
+                 <input 
+                    required 
+                    name="name" 
+                    value={formData.name} 
+                    onChange={handleInputChange} 
+                    style={styles.input} 
+                    list="common-holidays"
+                    placeholder="Select or type holiday name" 
+                 />
+                 <datalist id="common-holidays">
+                    <option value="New Year's Day" />
+                    <option value="Makara Sankranti" />
+                    <option value="Republic Day" />
+                    <option value="Maha Shivaratri" />
+                    <option value="Holi" />
+                    <option value="Ugadi" />
+                    <option value="Eid ul-Fitr" />
+                    <option value="Ambedkar Jayanti" />
+                    <option value="May Day" />
+                    <option value="Bakrid" />
+                    <option value="Independence Day" />
+                    <option value="Muharram" />
+                    <option value="Ganesh Chaturthi" />
+                    <option value="Gandhi Jayanti" />
+                    <option value="Dussehra" />
+                    <option value="Diwali" />
+                    <option value="Christmas" />
+                    <option value="Second Saturday" />
+                    <option value="Institutional Holiday" />
+                 </datalist>
+              </div>
+              <div style={{display: 'flex', gap: '10px'}}>
+                <div style={{...styles.inputGroup, flex: 1}}>
+                  <label style={styles.label}>From Date *</label>
+                  <input required type="date" name="startDate" value={formData.startDate} onChange={handleInputChange} style={styles.input} />
+                </div>
+                <div style={{...styles.inputGroup, flex: 1}}>
+                  <label style={styles.label}>To Date *</label>
+                  <input required type="date" name="endDate" value={formData.endDate} onChange={handleInputChange} style={styles.input} />
+                </div>
               </div>
               <div style={styles.inputGroup}>
-                 <label style={styles.label}>Date *</label>
-                 <input required type="date" name="date" value={formData.date} onChange={handleInputChange} style={styles.input} />
-              </div>
-              <div style={styles.inputGroup}>
-                 <label style={styles.label}>Type</label>
-                 <select name="type" value={formData.type} onChange={handleInputChange} style={styles.input}>
-                    <option value="National">National</option>
+                 <label style={styles.label}>Holiday Type *</label>
+                 <select 
+                    required
+                    name="type" 
+                    value={formData.type} 
+                    onChange={handleInputChange} 
+                    style={styles.input}
+                 >
                     <option value="Festival">Festival</option>
+                    <option value="National">National</option>
                     <option value="Optional">Optional</option>
                     <option value="Summer Holidays">Summer Holidays</option>
                     <option value="Other">Other</option>
@@ -189,6 +267,25 @@ const AdminHolidays = () => {
                 <button type="submit" style={styles.btnSave}>{editMode ? 'Save Changes' : 'Create Holiday'}</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {showDeleteModal && (
+        <div style={styles.modalOverlay}>
+          <div style={{...styles.modal, maxWidth: '400px'}}>
+            <div style={styles.modalHeader}>
+              <h3 style={{margin:0, fontSize: '18px'}}>Confirm Deletion</h3>
+              <button onClick={() => setShowDeleteModal(false)} style={styles.closeModal}>&times;</button>
+            </div>
+            <div style={{padding: '20px', color: '#475569'}}>
+              Are you sure you want to delete this holiday? This will also reverse any leave refunds given for these dates.
+            </div>
+            <div style={{...styles.modalFooter, padding: '20px', background: '#f8fafc'}}>
+              <button onClick={() => setShowDeleteModal(false)} style={styles.btnCancel}>Cancel</button>
+              <button onClick={handleDelete} style={{...styles.btnSave, background: '#ef4444'}}>
+                {loading ? 'Deleting...' : 'Delete Holiday'}
+              </button>
+            </div>
           </div>
         </div>
       )}

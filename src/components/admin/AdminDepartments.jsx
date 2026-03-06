@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../../utils/api';
 import { Plus, Edit2, Trash2, CheckCircle, XCircle } from 'lucide-react';
+import { useNotification } from '../../context/NotificationContext';
 
 const AdminDepartments = () => {
+  const { notify, showConfirm } = useNotification();
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -15,12 +17,7 @@ const AdminDepartments = () => {
     description: ''
   });
 
-  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
 
-  const showToast = (message, type = 'success') => {
-    setToast({ visible: true, message, type });
-    setTimeout(() => setToast({ visible: false, message: '', type: 'success' }), 3000);
-  };
 
   const fetchDepartments = async () => {
     try {
@@ -28,7 +25,7 @@ const AdminDepartments = () => {
       const res = await apiFetch('http://localhost:5000/api/admin/departments');
       if (res.ok) setDepartments(await res.json());
     } catch (err) {
-      showToast('Error loading departments', 'error');
+      notify('Error loading departments', 'error');
     } finally {
       setLoading(false);
     }
@@ -80,43 +77,43 @@ const AdminDepartments = () => {
       
       const data = await res.json();
       if (res.ok) {
-        showToast(data.message, 'success');
+        notify(data.message, 'success');
         setShowModal(false);
         fetchDepartments();
       } else {
-        showToast(data.message || 'Error saving department', 'error');
+        notify(data.message || 'Error saving department', 'error');
       }
     } catch (err) {
-      showToast('Server connection failed', 'error');
+      notify('Server connection failed', 'error');
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this department?')) return;
+    const confirmed = await showConfirm('Are you sure you want to delete this department?', {
+        title: 'Confirm Deletion',
+        confirmLabel: 'Delete',
+        danger: true
+    });
+    if (!confirmed) return;
     
     try {
       const res = await apiFetch(`http://localhost:5000/api/admin/departments/${id}`, { method: 'DELETE' });
       const data = await res.json();
       
       if (res.ok) {
-        showToast(data.message, 'success');
+        notify(data.message, 'success');
         fetchDepartments();
       } else {
-        showToast(data.message || 'Failed to delete', 'error');
+        notify(data.message || 'Failed to delete', 'error');
       }
     } catch (err) {
-      showToast('Server error during deletion', 'error');
+      notify('Server error during deletion', 'error');
     }
   };
 
   return (
     <div style={styles.container}>
-      {toast.visible && (
-        <div style={{...styles.toast, backgroundColor: toast.type === 'success' ? '#1e293b' : '#dc2626'}}>
-          {toast.type === 'success' ? <CheckCircle size={18} color="#4ade80" /> : <XCircle size={18} color="white" />}
-          {toast.message}
-        </div>
-      )}
+
 
       <div style={styles.header}>
         <h2 style={styles.title}>Department Management</h2>
@@ -226,7 +223,7 @@ const styles = {
   btnCancel: { padding: '10px 16px', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', cursor: 'pointer', fontWeight: '600', color: '#64748b' },
   btnSave: { padding: '10px 16px', borderRadius: '6px', border: 'none', background: '#10b981', color: 'white', cursor: 'pointer', fontWeight: '600' },
 
-  toast: { position: 'fixed', bottom: '30px', left: '50%', transform: 'translateX(-50%)', color: 'white', padding: '12px 24px', borderRadius: '50px', boxShadow: '0 10px 20px rgba(0,0,0,0.2)', zIndex: 2000, fontWeight: '500', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '10px', animation: 'fadeInUp 0.3s ease-out' }
+
 };
 
 export default AdminDepartments;

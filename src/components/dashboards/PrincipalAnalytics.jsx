@@ -58,18 +58,23 @@ const PrincipalAnalytics = () => {
           </div>
         ) : (
           <div style={styles.trendsContainer}>
-            {trends.map((t, idx) => (
-              <div key={idx} style={styles.trendBarWrapper}>
-                <div style={styles.tooltip}>{t.count} Leaves</div>
-                <div 
-                  style={{
-                    ...styles.trendBar, 
-                    height: `${Math.max(10, (t.count / (totalStaff || 1)) * 400)}px`, 
-                  }} 
-                />
-                <span style={styles.trendMonth}>{t.month}</span>
-              </div>
-            ))}
+            {(() => {
+              const maxCount = Math.max(...trends.map(t => t.count), 1);
+              const maxHeight = 200; // Max visual height of the bar in px
+              
+              return trends.map((t, idx) => (
+                <div key={idx} style={styles.trendBarWrapper}>
+                  <div style={styles.tooltip}>{t.count} Leaves</div>
+                  <div 
+                    style={{
+                      ...styles.trendBar, 
+                      height: `${Math.max(10, (t.count / maxCount) * maxHeight)}px`, 
+                    }} 
+                  />
+                  <span style={styles.trendMonth}>{t.month}</span>
+                </div>
+              ));
+            })()}
           </div>
         )}
       </div>

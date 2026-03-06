@@ -1,7 +1,7 @@
+import { apiFetch } from "../utils/api";
 import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import collegeLogo from "../assets/logo.png";
-import { apiFetch } from "../utils/api";
 
 const ForgotPassword = () => {
   const [searchParams] = useSearchParams();
@@ -25,7 +25,7 @@ const ForgotPassword = () => {
     setMessage("");
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/forgot-password", {
+      const response = await apiFetch("http://localhost:5000/api/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ emailOrId }),

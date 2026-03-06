@@ -15,10 +15,9 @@ const LeaveRequestSchema = new mongoose.Schema({
   
   // Tracks how many of each leaf type were actually deducted for this request
   deductionBreakdown: {
-    ccl: { type: Number, default: 0 },
-    cl: { type: Number, default: 0 },
-    al: { type: Number, default: 0 },
-    lop: { type: Number, default: 0 }
+    type: Map,
+    of: Number,
+    default: {}
   },
   
   // Class Adjustments (SRS Requirement 6.4)

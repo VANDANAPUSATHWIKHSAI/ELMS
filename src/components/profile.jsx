@@ -1,6 +1,7 @@
 import { apiFetch } from "../utils/api";
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from "../context/AuthContext"; 
+import { useNotification } from "../context/NotificationContext";
 import { 
   User, Camera, Save, X, Image as ImageIcon, Video, Edit3 
 } from 'lucide-react';
@@ -29,7 +30,8 @@ const ProfileField = ({ label, name, value, isReadOnly, isEditing, onChange, typ
 };
 
 const Profile = () => {
-  const { user: authUser } = useAuth(); // Get User info from Context
+  const { user: authUser } = useAuth();
+  const { notify } = useNotification();
   const kmitOrange = "#d1551b";
 
   // --- STATE ---
@@ -80,14 +82,14 @@ const Profile = () => {
       
       const data = await res.json();
       if (res.ok) {
-        alert("Profile Updated Successfully!");
+        notify("Profile Updated Successfully!", "success");
         setIsEditing(false);
       } else {
-        alert(data.message || "Update failed");
+        notify(data.message || "Update failed", "error");
       }
     } catch (err) { 
       console.error(err);
-      alert("Network error. Please try again."); 
+      notify("Network error. Please try again.", "error");
     }
   };
 
@@ -111,7 +113,7 @@ const Profile = () => {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       if (videoRef.current) videoRef.current.srcObject = stream;
     } catch (err) {
-      alert("Camera access denied");
+      notify("Camera access denied", "error");
       setIsCameraActive(false);
     }
   };

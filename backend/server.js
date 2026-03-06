@@ -12,7 +12,6 @@ const LeaveLedger = require('./models/LeaveLedger');
 const Message = require('./models/Message');
 const LateMark = require('./models/LateMark');
 const LeaveType = require('./models/LeaveType');
-const Adjustment = require('./models/Adjustment');
 const Holiday = require('./models/Holiday');
 const jwt = require('jsonwebtoken');
 const { authMiddleware, roleMiddleware } = require('./middleware/auth');
@@ -22,11 +21,48 @@ const fs = require('fs');
 const app = express();
 const PORT = 5000;
 
+// --- Helper: Email & Mobile Validation ---
+const validateEmailFormat = (email) => {
+  if (!email || typeof email !== 'string') return "Email is required";
+  const parts = email.split('@');
+  if (parts.length !== 2) return "Email must contain exactly one @";
+  
+  const [localPart, domain] = parts;
+  if (!localPart) return "Email must have characters before @";
+  if (!domain) return "Email must have a domain after @";
+  if (email.includes(" ")) return "Email cannot contain spaces";
+
+  if (!/^[a-zA-Z0-9._%+-]+$/.test(localPart)) return "Invalid characters in email local part";
+  if (!domain.includes(".")) return "Domain must contain at least one dot (.)";
+  if (domain.startsWith(".") || domain.endsWith(".")) return "Domain cannot start or end with a dot (.)";
+  if (!/^[a-zA-Z0-9.-]+$/.test(domain)) return "Invalid characters in email domain";
+  
+  return null; // OK
+};
+
+const validateMobileFormat = (mobile) => {
+  if (!mobile) return "Mobile number is required";
+  if (!/^\d{10}$/.test(mobile)) return "Mobile number must contain exactly 10 digits and only numbers";
+  return null; // OK
+};
+
+const validateAadhaarFormat = (aadhaar) => {
+  if (!aadhaar) return "Aadhaar number is required";
+  if (!/^\d{12}$/.test(aadhaar)) return "Aadhaar number must contain exactly 12 digits and only numbers";
+  return null; // OK
+};
+
+const validatePanFormat = (pan) => {
+  if (!pan) return "PAN number is required";
+  if (!/^[a-zA-Z0-9]{10}$/.test(pan)) return "PAN number must contain exactly 10 alphanumeric characters";
+  return null; // OK
+};
+
 // --- Nodemailer Transporter ---
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
-  port: 465,
-  secure: true, // Use SSL
+  port: 587,
+  secure: false, // Use TLS
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
@@ -74,7 +110,7 @@ mongoose.connect(MONGO_URI)
 // 1. LOGIN ROUTE
 app.post('/api/auth/login', async (req, res) => {
   const { employeeId, password } = req.body;
-  console.log(`Login attempt: ID=${employeeId}, PW=${password}`);
+  console.log(`Login attempt: ID=${employeeId}`);
   try {
     const user = await User.findOne({ employeeId });
     if (!user) {
@@ -91,7 +127,13 @@ app.post('/api/auth/login', async (req, res) => {
 
     // Generate JWT Token
     const token = jwt.sign(
-      { employeeId: user.employeeId, role: user.role, dept: user.department },
+      { 
+        employeeId: user.employeeId, 
+        role: user.role, 
+        dept: user.department,
+        firstName: user.firstName,
+        lastName: user.lastName
+      },
       process.env.JWT_SECRET || 'supersecretkey',
       { expiresIn: '1d' }
     );
@@ -298,70 +340,321 @@ app.put('/api/user/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// 3c. ADJUSTMENTS ROUTES
-app.post('/api/adjustments/create', authMiddleware, async (req, res) => {
-  try {
-    const { targetEmployeeId, requesterId, date, period, classSection, reason } = req.body;
-    
-    const targetUser = await User.findOne({ employeeId: targetEmployeeId });
-    if (!targetUser) return res.status(404).json({ message: "Target user not found" });
-
-    const requester = await User.findOne({ employeeId: requesterId });
-    const reqName = requester ? `${requester.firstName} ${requester.lastName}` : requesterId;
-
-    const newAdj = new Adjustment({
-      requesterId,
-      requesterName: reqName, 
-      targetEmployeeId,
-      targetName: `${targetUser.firstName} ${targetUser.lastName}`,
-      date, period, classSection, reason, status: 'Pending'
-    });
-
-    await newAdj.save();
-    res.json({ message: "Adjustment request sent", adjustment: newAdj });
-  } catch(err) {
-    res.status(500).json({ message: "Failed to create adjustment", error: err.message });
-  }
-});
-
-app.get('/api/adjustments/incoming/:id', authMiddleware, async (req, res) => {
-  try {
-    const adjs = await Adjustment.find({ targetEmployeeId: req.params.id }).sort({ createdAt: -1 });
-    res.json(adjs);
-  } catch(err) {
-    res.status(500).json({ message: "Failed to fetch incoming adjustments" });
-  }
-});
-
-app.get('/api/adjustments/outgoing/:id', authMiddleware, async (req, res) => {
-  try {
-    const adjs = await Adjustment.find({ requesterId: req.params.id }).sort({ createdAt: -1 });
-    res.json(adjs);
-  } catch(err) {
-    res.status(500).json({ message: "Failed to fetch outgoing adjustments" });
-  }
-});
-
-app.post('/api/adjustments/respond', authMiddleware, async (req, res) => {
-  try {
-    const { requestId, status } = req.body;
-    const adj = await Adjustment.findById(requestId);
-    if (!adj) return res.status(404).json({ message: "Request not found" });
-    
-    if (adj.targetEmployeeId !== req.user.employeeId && req.user.role !== 'Admin') {
-      return res.status(403).json({ message: "Unauthorized" });
-    }
-    
-    adj.status = status;
-    await adj.save();
-    res.json({ message: `Request ${status} successfully` });
-  } catch(err) {
-    res.status(500).json({ message: "Failed to respond to adjustment" });
-  }
-});
-
-
 // 4. APPLY LEAVE ROUTE
+// --- SANDWICH UN-BRIDGE HELPER ---
+async function unbridgeAdjacentHolidays(employeeId, rejectedLeaveStartDate, rejectedLeaveEndDate, rejectedLeaveId) {
+    try {
+        const allHolidays = await Holiday.find({});
+        const getHolidayType = (date) => {
+            const d = new Date(date);
+            d.setHours(0,0,0,0);
+            const day = d.getDay();
+            const h = allHolidays.find(h => {
+                const hStart = new Date(h.startDate);
+                const hEnd = new Date(h.endDate);
+                hStart.setHours(0,0,0,0);
+                hEnd.setHours(0,0,0,0);
+                return d >= hStart && d <= hEnd;
+            });
+            if (h) return h.type;
+            if (day === 0) return 'Sunday';
+            return null;
+        };
+
+        const isDeductibleHoliday = (date) => {
+            const type = getHolidayType(date);
+            if (type === 'Sunday') return true;
+            if (type && type !== 'Summer Holidays') return true;
+            return false;
+        };
+
+        const getBaseDays = (l) => {
+            if (l.isHalfDay) return 0.5;
+            let base = 0;
+            let curr = new Date(l.startDate);
+            const end = new Date(l.endDate);
+            while (curr <= end) {
+                if (getHolidayType(curr) !== 'Summer Holidays') base += 1;
+                curr.setDate(curr.getDate() + 1);
+            }
+            return base;
+        };
+
+        const activeLeaves = await LeaveRequest.find({
+            employeeId,
+            status: { $in: ['Approved', 'Pending', 'Auto-Approved'] },
+            _id: { $ne: rejectedLeaveId }
+        });
+
+        if (!activeLeaves.length) return;
+
+        const user = await User.findOne({ employeeId });
+        if (!user) return;
+        
+        const ledgerEntries = [];
+        let balanceModified = false;
+
+        const refundDays = (leave, daysToRefund) => {
+            if (daysToRefund <= 0) return 0;
+            if (!leave.deductionBreakdown) return 0;
+            
+            const breakdown = leave.deductionBreakdown;
+            const getVal = (key) => typeof breakdown.get === 'function' ? breakdown.get(key) : breakdown[key];
+            const setVal = (key, val) => typeof breakdown.set === 'function' ? breakdown.set(key, val) : breakdown[key] = val;
+            const entries = typeof breakdown.entries === 'function' ? Array.from(breakdown.entries()) : Object.entries(breakdown);
+            
+            let remainingToRefund = daysToRefund;
+            
+            for (const [type, amount] of entries) {
+                if (remainingToRefund <= 0) break;
+                if (amount > 0) {
+                    const toRefund = Math.min(remainingToRefund, amount);
+                    const key = type.toLowerCase();
+                    if (key === 'lop') {
+                        user.leaveBalance.lop = (user.leaveBalance.lop || 0) - toRefund;
+                        ledgerEntries.push({
+                            employeeId, transactionType: 'Credit', leaveType: 'LOP', amount: -toRefund,
+                            reason: `Sandwich Broken Refund (Reverted LOP) for related Leave #${leave._id}`,
+                            referenceId: leave._id, balanceAfter: user.leaveBalance.lop
+                        });
+                    } else {
+                        user.leaveBalance[key] = (user.leaveBalance[key] || 0) + toRefund;
+                        ledgerEntries.push({
+                            employeeId, transactionType: 'Credit', leaveType: type.toUpperCase(), amount: toRefund,
+                            reason: `Sandwich Broken Refund for related Leave #${leave._id}`,
+                            referenceId: leave._id, balanceAfter: user.leaveBalance[key]
+                        });
+                    }
+                    setVal(type, amount - toRefund);
+                    remainingToRefund -= toRefund;
+                }
+            }
+            return daysToRefund - remainingToRefund;
+        };
+
+        const processAdjacentLeave = async (adjLeave, bridgeDays) => {
+            const baseDays = getBaseDays(adjLeave);
+            let deductedDays = 0;
+            if (adjLeave.deductionBreakdown) {
+                const entries = typeof adjLeave.deductionBreakdown.entries === 'function' ? Array.from(adjLeave.deductionBreakdown.entries()) : Object.entries(adjLeave.deductionBreakdown);
+                for (const [k, v] of entries) deductedDays += v;
+            } else if (adjLeave.days) {
+                deductedDays = adjLeave.days; 
+            }
+            
+            const extraDays = Math.max(0, deductedDays - baseDays);
+            const daysToRefund = Math.min(bridgeDays, extraDays);
+            
+            if (daysToRefund > 0) {
+                console.log(`[UN-BRIDGE] Rejecting leave broke sandwich. Refunding ${daysToRefund} days to Leave ${adjLeave._id}`);
+                const refunded = refundDays(adjLeave, daysToRefund);
+                if (refunded > 0) {
+                    balanceModified = true;
+                    adjLeave.markModified('deductionBreakdown');
+                    if (adjLeave.days) adjLeave.days -= refunded;
+                    await adjLeave.save();
+                }
+            }
+        };
+
+        const sDate = new Date(rejectedLeaveStartDate);
+        const eDate = new Date(rejectedLeaveEndDate);
+
+        // 1. Scan Backwards
+        let backwardScan = new Date(sDate);
+        backwardScan.setDate(backwardScan.getDate() - 1);
+        let backwardBridge = 0;
+        let safetyCounter = 0;
+        
+        while (isDeductibleHoliday(backwardScan) && safetyCounter < 10) {
+            backwardBridge++;
+            backwardScan.setDate(backwardScan.getDate() - 1);
+            safetyCounter++;
+        }
+        
+        if (backwardBridge > 0) {
+            const prevEndDateStr = `${backwardScan.getFullYear()}-${String(backwardScan.getMonth() + 1).padStart(2, '0')}-${String(backwardScan.getDate()).padStart(2, '0')}`;
+            const prevLeave = activeLeaves.find(l => {
+                const d = new Date(l.endDate);
+                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === prevEndDateStr;
+            });
+            if (prevLeave) await processAdjacentLeave(prevLeave, backwardBridge);
+        }
+
+        // 2. Scan Forwards
+        let forwardScan = new Date(eDate);
+        forwardScan.setDate(forwardScan.getDate() + 1);
+        let forwardBridge = 0;
+        safetyCounter = 0;
+        
+        while (isDeductibleHoliday(forwardScan) && safetyCounter < 10) {
+            forwardBridge++;
+            forwardScan.setDate(forwardScan.getDate() + 1);
+            safetyCounter++;
+        }
+        
+        if (forwardBridge > 0) {
+            const nextStartDateStr = `${forwardScan.getFullYear()}-${String(forwardScan.getMonth() + 1).padStart(2, '0')}-${String(forwardScan.getDate()).padStart(2, '0')}`;
+            const nextLeave = activeLeaves.find(l => {
+                const d = new Date(l.startDate);
+                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === nextStartDateStr;
+            });
+            if (nextLeave) await processAdjacentLeave(nextLeave, forwardBridge);
+        }
+        
+        if (balanceModified) {
+            user.markModified('leaveBalance');
+            await user.save();
+            if (ledgerEntries.length > 0) await LeaveLedger.insertMany(ledgerEntries);
+        }
+    } catch (err) {
+        console.error("Error in unbridgeAdjacentHolidays:", err);
+    }
+}
+// --- END SANDWICH UN-BRIDGE HELPER ---
+
+// --- LEAVE RECALCULATION ENGINE ---
+// Retroactively upgrades future LOP/CL leaves to CCL/CL if an older leave is rejected/cancelled
+async function recalculateFutureLeaves(employeeId, rejectedLeaveDate, rejectedLeaveId) {
+    try {
+        const thresholdDate = new Date(rejectedLeaveDate);
+        thresholdDate.setHours(0,0,0,0);
+
+        // Find all active leaves applied or starting after this date that might need an upgrade
+        const futureLeaves = await LeaveRequest.find({
+            employeeId,
+            _id: { $ne: rejectedLeaveId },
+            status: { $in: ['Approved', 'Auto-Approved', 'Pending'] },
+            $or: [
+                { appliedOn: { $gte: thresholdDate } },
+                { startDate: { $gte: thresholdDate } }
+            ]
+        }).sort({ appliedOn: 1 }); // Process chronologically
+
+        if (!futureLeaves.length) return;
+
+        const user = await User.findOne({ employeeId });
+        if (!user) return;
+
+        let balanceModified = false;
+        const ledgerEntries = [];
+
+        for (const leave of futureLeaves) {
+            if (!leave.deductionBreakdown) continue;
+            
+            const breakdown = leave.deductionBreakdown;
+            const getVal = (key) => {
+                let v = typeof breakdown.get === 'function' ? breakdown.get(key) : breakdown[key];
+                return v || 0;
+            };
+            const setVal = (key, val) => typeof breakdown.set === 'function' ? breakdown.set(key, val) : breakdown[key] = val;
+            
+            let lopDeducted = getVal('lop');
+            let clDeducted = getVal('cl');
+            
+            let leaveModified = false;
+
+            // 1. Try to upgrade LOP/CL to CCL
+            const cclAvailable = user.leaveBalance.ccl || 0;
+            if (cclAvailable > 0 && (lopDeducted > 0 || clDeducted > 0)) {
+                let toUpgrade = Math.min(cclAvailable, lopDeducted + clDeducted);
+                
+                // Prioritize upgrading LOP to CCL first
+                if (lopDeducted > 0) {
+                    const upgradeLopToCcl = Math.min(toUpgrade, lopDeducted);
+                    setVal('lop', lopDeducted - upgradeLopToCcl);
+                    setVal('ccl', getVal('ccl') + upgradeLopToCcl);
+                    
+                    user.leaveBalance.lop -= upgradeLopToCcl;
+                    user.leaveBalance.ccl -= upgradeLopToCcl;
+                    toUpgrade -= upgradeLopToCcl;
+                    lopDeducted -= upgradeLopToCcl;
+                    
+                    ledgerEntries.push({
+                        employeeId, transactionType: 'Debit', leaveType: 'CCL', amount: -upgradeLopToCcl,
+                        reason: `Balance Re-evaluation (Upgraded from LOP) #${leave._id}`, referenceId: leave._id, balanceAfter: user.leaveBalance.ccl
+                    });
+                    ledgerEntries.push({
+                        employeeId, transactionType: 'Credit', leaveType: 'LOP', amount: -upgradeLopToCcl,
+                        reason: `Balance Re-evaluation (Reverted LOP) #${leave._id}`, referenceId: leave._id, balanceAfter: user.leaveBalance.lop
+                    });
+                    leaveModified = true;
+                }
+                
+                // Then upgrade CL to CCL
+                if (toUpgrade > 0 && clDeducted > 0) {
+                    const upgradeClToCcl = Math.min(toUpgrade, clDeducted);
+                    setVal('cl', clDeducted - upgradeClToCcl);
+                    setVal('ccl', getVal('ccl') + upgradeClToCcl);
+                    
+                    user.leaveBalance.cl += upgradeClToCcl; // Refund CL
+                    user.leaveBalance.ccl -= upgradeClToCcl; // Deduct CCL
+                    clDeducted -= upgradeClToCcl;
+                    
+                    ledgerEntries.push({
+                        employeeId, transactionType: 'Debit', leaveType: 'CCL', amount: -upgradeClToCcl,
+                        reason: `Balance Re-evaluation (Upgraded from CL) #${leave._id}`, referenceId: leave._id, balanceAfter: user.leaveBalance.ccl
+                    });
+                    ledgerEntries.push({
+                        employeeId, transactionType: 'Credit', leaveType: 'CL', amount: upgradeClToCcl,
+                        reason: `Balance Re-evaluation (Reverted CL) #${leave._id}`, referenceId: leave._id, balanceAfter: user.leaveBalance.cl
+                    });
+                    leaveModified = true;
+                }
+            }
+
+            // 2. Try to upgrade LOP to CL
+            const clAvailable = user.leaveBalance.cl || 0;
+            if (clAvailable > 0 && lopDeducted > 0) {
+                const upgradeLopToCl = Math.min(clAvailable, lopDeducted);
+                setVal('lop', lopDeducted - upgradeLopToCl);
+                setVal('cl', getVal('cl') + upgradeLopToCl);
+                
+                user.leaveBalance.lop -= upgradeLopToCl;
+                user.leaveBalance.cl -= upgradeLopToCl;
+                lopDeducted -= upgradeLopToCl;
+                
+                ledgerEntries.push({
+                    employeeId, transactionType: 'Debit', leaveType: 'CL', amount: -upgradeLopToCl,
+                    reason: `Balance Re-evaluation (Upgraded from LOP) #${leave._id}`, referenceId: leave._id, balanceAfter: user.leaveBalance.cl
+                });
+                ledgerEntries.push({
+                    employeeId, transactionType: 'Credit', leaveType: 'LOP', amount: -upgradeLopToCl,
+                    reason: `Balance Re-evaluation (Reverted LOP) #${leave._id}`, referenceId: leave._id, balanceAfter: user.leaveBalance.lop
+                });
+                leaveModified = true;
+            }
+
+            if (leaveModified) {
+                balanceModified = true;
+                
+                // Update the visual leaveType string if it was mixed
+                if (['Standard', 'CL'].includes(leave.leaveType.split('+')[0].trim()) || leave.leaveType.includes('LOP')) {
+                    const parts = [];
+                    if (getVal('al') > 0) parts.push('AL');
+                    if (getVal('ccl') > 0) parts.push('CCL');
+                    if (getVal('cl') > 0) parts.push('CL');
+                    if (getVal('lop') > 0) parts.push('LOP');
+                    leave.leaveType = parts.length > 0 ? parts.join(' + ') : leave.leaveType;
+                }
+                
+                leave.markModified('deductionBreakdown');
+                await leave.save();
+                console.log(`[RECALC] Retoactively upgraded Leave #${leave._id} to utilize newly freed balances.`);
+            }
+        }
+
+        if (balanceModified) {
+            user.markModified('leaveBalance');
+            await user.save();
+            if (ledgerEntries.length > 0) await LeaveLedger.insertMany(ledgerEntries);
+        }
+    } catch (err) {
+        console.error("Error in recalculateFutureLeaves:", err);
+    }
+}
+// --- END LEAVE RECALCULATION ENGINE ---
+
 app.post('/api/leave/apply', authMiddleware, upload.single('document'), async (req, res) => {
   try {
     let { employeeId, leaveType, startDate, endDate, reason, adjustments, isHalfDay, halfDayType } = req.body;
@@ -405,26 +698,58 @@ app.post('/api/leave/apply', authMiddleware, upload.single('document'), async (r
     if (startLocalDate.getTime() === todayLocalDate.getTime() && now.getHours() >= 16) {
       return res.status(400).json({ message: "College timings have completed for today. Please apply from tomorrow." });
     }
-    // --- END VALIDATION LOGIC ---
 
-    // 1. Fetch holidays
+    // --- Holiday & Sunday Blocking Logic ---
     const allHolidays = await Holiday.find({});
     
-    // Helper to check if a date is a holiday or Sunday
-    const getHolidayType = (date) => {
+    const getHolidayInfo = (date) => {
         const d = new Date(date);
         d.setHours(0,0,0,0);
         const day = d.getDay(); // 0 is Sunday
         
         const h = allHolidays.find(h => {
-             const hDate = new Date(h.date);
-             hDate.setHours(0,0,0,0);
-             return hDate.getTime() === d.getTime();
+             const hStart = new Date(h.startDate);
+             const hEnd = new Date(h.endDate);
+             hStart.setHours(0,0,0,0);
+             hEnd.setHours(0,0,0,0);
+             return d >= hStart && d <= hEnd;
         });
         
-        if (h) return h.type;
-        if (day === 0) return 'Sunday';
+        if (h) return { type: h.type, name: h.name };
+        if (day === 0) return { type: 'Sunday', name: 'Sunday' };
         return null;
+    };
+
+    const startHoliday = getHolidayInfo(startLocalDate);
+    if (startHoliday) {
+        return res.status(400).json({ message: `Cannot apply leave starting on a holiday/Sunday: ${startHoliday.name}` });
+    }
+
+    const endHoliday = getHolidayInfo(endLocalDate);
+    if (endHoliday) {
+        return res.status(400).json({ message: `Cannot apply leave ending on a holiday/Sunday: ${endHoliday.name}` });
+    }
+
+    // --- Overlap Validation ---
+    const overlappingLeave = await LeaveRequest.findOne({
+      employeeId,
+      status: { $in: ['Pending', 'Approved', 'Auto-Approved'] },
+      $or: [
+        { startDate: { $lte: endDate }, endDate: { $gte: startDate } }
+      ]
+    });
+
+    if (overlappingLeave) {
+      return res.status(400).json({ 
+        message: `You have already applied for leave during this period (${overlappingLeave.startDate} to ${overlappingLeave.endDate}).` 
+      });
+    }
+    // --- END VALIDATION LOGIC ---
+
+    // Helper to check if a date is a holiday or Sunday (for deduction logic)
+    const getHolidayType = (date) => {
+        const info = getHolidayInfo(date);
+        return info ? info.type : null;
     };
 
     const isDeductibleHoliday = (date) => {
@@ -436,19 +761,14 @@ app.post('/api/leave/apply', authMiddleware, upload.single('document'), async (r
 
     const isSummerHoliday = (date) => getHolidayType(date) === 'Summer Holidays';
 
-    // 2. Validate Start/End Restriction
-    const startType = getHolidayType(startLocalDate);
-    const endType = getHolidayType(endLocalDate);
-    
-    if (isDeductibleHoliday(startLocalDate)) {
-      return res.status(400).json({ message: `Leave cannot start on a ${startType}.` });
-    }
-    if (isDeductibleHoliday(endLocalDate)) {
-      return res.status(400).json({ message: `Leave cannot end on a ${endType}.` });
-    }
+    // 2. Start/End holiday logic: Allow it, but it counts as leave (unless Summer Holiday)
+    // Removed restriction per user request to allow leaves starting on holidays to be deducted.
 
     // 3. Calculate days (Inclusive of intervening deductible holidays)
     let totalDeductionDays = 0;
+    let backwardBridge = 0;
+    let forwardBridge = 0;
+
     if (halfDayBool) {
       totalDeductionDays = 0.5;
     } else {
@@ -462,7 +782,6 @@ app.post('/api/leave/apply', authMiddleware, upload.single('document'), async (r
 
       // 4. Bridge Rule (Detect adjacent approved leaves separated only by deductible holidays)
       // Scan backwards from startDate
-      let backwardBridge = 0;
       let backwardScan = new Date(startLocalDate);
       backwardScan.setDate(backwardScan.getDate() - 1);
       
@@ -477,13 +796,12 @@ app.post('/api/leave/apply', authMiddleware, upload.single('document'), async (r
       const prevEndDateStr = `${backwardScan.getFullYear()}-${String(backwardScan.getMonth() + 1).padStart(2, '0')}-${String(backwardScan.getDate()).padStart(2, '0')}`;
       const prevLeaveExists = await LeaveRequest.findOne({
           employeeId,
-          status: { $in: ['Approved', 'Auto-Approved'] },
+          status: { $in: ['Approved', 'Auto-Approved', 'Pending'] },
           endDate: prevEndDateStr
       });
       if (prevLeaveExists) totalDeductionDays += backwardBridge;
 
       // Scan forwards from endDate
-      let forwardBridge = 0;
       let forwardScan = new Date(endLocalDate);
       forwardScan.setDate(forwardScan.getDate() + 1);
       
@@ -497,7 +815,7 @@ app.post('/api/leave/apply', authMiddleware, upload.single('document'), async (r
       const nextStartDateStr = `${forwardScan.getFullYear()}-${String(forwardScan.getMonth() + 1).padStart(2, '0')}-${String(forwardScan.getDate()).padStart(2, '0')}`;
       const nextLeaveExists = await LeaveRequest.findOne({
           employeeId,
-          status: { $in: ['Approved', 'Auto-Approved'] },
+          status: { $in: ['Approved', 'Auto-Approved', 'Pending'] },
           startDate: nextStartDateStr
       });
       if (nextLeaveExists) totalDeductionDays += forwardBridge;
@@ -515,18 +833,18 @@ app.post('/api/leave/apply', authMiddleware, upload.single('document'), async (r
     if (user.leaveBalance.al === undefined) user.leaveBalance.al = 0;
     if (user.leaveBalance.lop === undefined) user.leaveBalance.lop = 0;
 
-    let remainingDays = leaveType === 'OD' ? 0 : days;
+    // --- DEDUCTION ENGINE ---
+    let remainingDays = days;
     let breakdown = { ccl: 0, cl: 0, al: 0, lop: 0 };
 
-    // 3. The Deduction Engine
-    // SPECIAL LEAVE LOGIC (AL)
-    if (leaveType === 'AL') {
+    if (leaveType === 'OD') {
+      remainingDays = 0; // OD is unlimited
+    } 
+    else if (leaveType === 'AL') {
       const isAsstProf = user.designation && user.designation.toLowerCase().includes('assistant professor');
       if (!user.isPhdRegistered && !isAsstProf) {
         return res.status(400).json({ message: "Academic Leave (AL) is only available for PhD-registered faculty or Assistant Professors." });
       }
-
-      // Enforce document upload for AL
       if (!documentUrl) {
         return res.status(400).json({ message: "Supporting document is mandatory for Academic Leave (AL)." });
       }
@@ -548,7 +866,6 @@ app.post('/api/leave/apply', authMiddleware, upload.single('document'), async (r
         remainingDays -= alToDeduct;
       }
 
-      // AL OVERFLOW -> CL (if any AL remains un-filled or if AL limit was zero)
       if (remainingDays > 0 && user.leaveBalance.cl > 0) {
         const clToDeduct = Math.min(remainingDays, user.leaveBalance.cl);
         user.leaveBalance.cl -= clToDeduct;
@@ -556,26 +873,44 @@ app.post('/api/leave/apply', authMiddleware, upload.single('document'), async (r
         remainingDays -= clToDeduct;
       }
     } 
-    // STANDARD TIERED DEDUCTION LOGIC (CCL -> CL -> LOP)
     else if (leaveType === 'CL' || leaveType === 'Standard') {
-      // Tier 1: CCL (Compensatory Casual Leave is burned first)
+      // 1. Try to use CCL first (safely)
       if (remainingDays > 0 && user.leaveBalance.ccl > 0) {
         const cclToDeduct = Math.min(remainingDays, user.leaveBalance.ccl);
         user.leaveBalance.ccl -= cclToDeduct;
         breakdown.ccl = cclToDeduct;
         remainingDays -= cclToDeduct;
       }
-
-      // Tier 2: CL (Burned only if CCL is depleted) - Using absolute balance
+      // 2. Try to use CL next (safely)
       if (remainingDays > 0 && user.leaveBalance.cl > 0) {
         const clToDeduct = Math.min(remainingDays, user.leaveBalance.cl);
         user.leaveBalance.cl -= clToDeduct;
         breakdown.cl = clToDeduct;
         remainingDays -= clToDeduct;
       }
+      // 3. Ensure CCL/CL never go negative due to floating point or logic errors
+      if (user.leaveBalance.ccl < 0) user.leaveBalance.ccl = 0;
+      if (user.leaveBalance.cl < 0) user.leaveBalance.cl = 0;
     }
-    // We removed the legacy fallback block because CL deduction is now handled precisely in the standard tier above.
+    else if (leaveType !== 'OD') {
+      // --- CUSTOM LEAVE TYPE VALIDATION & DEDUCTION ---
+      const balanceField = leaveType.toLowerCase();
+      const currentBalance = user.leaveBalance[balanceField] || 0;
+
+      if (remainingDays > currentBalance) {
+        return res.status(400).json({ 
+          message: `Insufficient balance for ${leaveType}. Available: ${currentBalance}, Requested: ${remainingDays}` 
+        });
+      }
+
+      // Deduct exactly the requested days from the custom balance
+      const requestedAmt = remainingDays;
+      user.leaveBalance[balanceField] -= requestedAmt;
+      breakdown[balanceField] = requestedAmt; // Record for refund logic
+      remainingDays = 0; // Fully covered
+    }
     
+    // 3. Finalize LOP (Only for Standard/AL which allow overflow)
     if (remainingDays > 0) {
       user.leaveBalance.lop += remainingDays;
       breakdown.lop = remainingDays;
@@ -612,36 +947,34 @@ app.post('/api/leave/apply', authMiddleware, upload.single('document'), async (r
       deductionBreakdown: breakdown,
       adjustments: adjustments, 
       status: 'Pending', 
-      hodApproval: { status: 'Pending' }
+      hodApproval: { status: 'Pending' },
+      principalApproval: { status: leaveType === 'OD' ? 'Pending' : 'N/A' }
     });
     await newLeave.save();
 
     // 5. Update Ledger
     const ledgerEntries = [];
-    if (breakdown.al > 0) {
+    const bridgeNote = (backwardBridge > 0 || forwardBridge > 0) ? ` (Includes Sandwich/Bridge days: ${backwardBridge + forwardBridge})` : "";
+    
+    for (const [type, amount] of Object.entries(breakdown)) {
+      if (amount <= 0) continue;
+      
+      const key = type.toLowerCase();
+      const displayType = type.toUpperCase();
+      const signedAmt = key === 'lop' ? amount : -amount;
+      
       ledgerEntries.push({
-        employeeId, transactionType: 'Debit', leaveType: 'AL', amount: -breakdown.al,
-        reason: `Leave Application #${newLeave._id}`, referenceId: newLeave._id, balanceAfter: user.leaveBalance.al
+        employeeId, 
+        transactionType: 'Debit', 
+        leaveType: displayType, 
+        amount: signedAmt,
+        reason: `Leave Application #${newLeave._id}${bridgeNote}`, 
+        referenceId: newLeave._id, 
+        balanceAfter: user.leaveBalance[key]
       });
     }
-    if (breakdown.ccl > 0) {
-      ledgerEntries.push({
-        employeeId, transactionType: 'Debit', leaveType: 'CCL', amount: -breakdown.ccl,
-        reason: `Leave Application (Priority Deduct) #${newLeave._id}`, referenceId: newLeave._id, balanceAfter: user.leaveBalance.ccl
-      });
-    }
-    if (breakdown.cl > 0) {
-      ledgerEntries.push({
-        employeeId, transactionType: 'Debit', leaveType: 'CL', amount: -breakdown.cl,
-        reason: `Leave Application (Priority Deduct) #${newLeave._id}`, referenceId: newLeave._id, balanceAfter: user.leaveBalance.cl
-      });
-    }
-    if (breakdown.lop > 0) {
-      ledgerEntries.push({
-        employeeId, transactionType: 'Debit', leaveType: 'LOP', amount: breakdown.lop, 
-        reason: `Leave Application (Priority Deduct / LOP) #${newLeave._id}`, referenceId: newLeave._id, balanceAfter: user.leaveBalance.lop
-      });
-    }
+
+    if (ledgerEntries.length > 0) await LeaveLedger.insertMany(ledgerEntries);
 
     res.json({ message: "Leave applied successfully!", leaveId: newLeave._id });
   } catch (err) {
@@ -664,20 +997,22 @@ app.get('/api/leave/monthly-ledger/:employeeId', authMiddleware, async (req, res
       total: 0, lates: 0, availed: 0, remaining: 0, lop: 0
     }));
 
+    // 2. Get Ledger Entries (Credits/Debits) - MOVED UP to fix ReferenceError for Assistant Professors
+    const ledgerEntries = await LeaveLedger.find({ 
+      employeeId, 
+      date: { $gte: new Date(year, 0, 1), $lte: new Date(year, 11, 31) } 
+    }).sort({ date: 1 }); // Sort by date for running totals
+
     // 1. Get User Profile for AL Policy
     const user = await User.findOne({ employeeId });
     const isAssistantProfessor = user && (user.designation === 'Assistant Professor' || user.designation?.toLowerCase().includes('phd'));
     
     // Inject Annual AL Allocation into January (Month 0) if eligible
     if (isAssistantProfessor) {
-        ledgerData[0].al = 5;
+        // AL for Assistant Professors is typically 5, but we should reflect the actual limit based on profile + usage
+        const totalUsed = ledgerEntries.filter(e => e.leaveType.toLowerCase() === 'al' && e.transactionType === 'Debit').reduce((sum, e) => sum + Math.abs(e.amount), 0);
+        ledgerData[0].al = Math.max(5, (user?.leaveBalance?.al || 0) + totalUsed);
     }
-
-    // 2. Get Ledger Entries (Credits/Debits)
-    const ledgerEntries = await LeaveLedger.find({ 
-      employeeId, 
-      date: { $gte: new Date(year, 0, 1), $lte: new Date(year, 11, 31) } 
-    }).sort({ date: 1 }); // Sort by date for running totals
 
     let runningCl = 0, runningCcl = 0, runningAl = isAssistantProfessor ? 5 : 0;
 
@@ -831,8 +1166,8 @@ app.get('/api/leave/quarterly-ledger/:employeeId', authMiddleware, async (req, r
 
     // AL limit: 5 for Assistant Professor per request
     const isAssistantProf = user?.designation?.toLowerCase().includes('assistant professor');
-    const alBaseAlloc = isAssistantProf ? 5 : (user?.leaveBalance?.al || 0);
-    const alRemainingNow = Math.max(0, alBaseAlloc - getNetUsed('al'));
+    const alRemainingNow = user ? (user.leaveBalance.al || 0) : 0;
+    const alBaseAlloc = isAssistantProf ? Math.max(5, alRemainingNow + getNetUsed('al')) : (user?.leaveBalance?.al || 0);
 
     const summary = {
       clRemaining: clRemainingNow,
@@ -884,31 +1219,56 @@ app.put('/api/leave/cancel/:id', authMiddleware, async (req, res) => {
     if (leave.status === 'Pending' || leave.status === 'Approved') {
        const user = await User.findOne({ employeeId: leave.employeeId });
        
-       if (user && leave.deductionBreakdown) {
-         const { al, ccl, cl, lop } = leave.deductionBreakdown;
-         const ledgerEntries = [];
-         
-         if (al > 0) {
-           user.leaveBalance.al += al;
-           ledgerEntries.push({ employeeId: leave.employeeId, transactionType: 'Credit', leaveType: 'AL', amount: al, reason: `Leave Cancelled (Refund) #${leaveId}`, referenceId: leaveId, balanceAfter: user.leaveBalance.al });
-         }
-         if (ccl > 0) {
-           user.leaveBalance.ccl += ccl;
-           ledgerEntries.push({ employeeId: leave.employeeId, transactionType: 'Credit', leaveType: 'CCL', amount: ccl, reason: `Leave Cancelled (Refund) #${leaveId}`, referenceId: leaveId, balanceAfter: user.leaveBalance.ccl });
-         }
-         if (cl > 0) {
-           user.leaveBalance.cl += cl;
-           ledgerEntries.push({ employeeId: leave.employeeId, transactionType: 'Credit', leaveType: 'CL', amount: cl, reason: `Leave Cancelled (Refund) #${leaveId}`, referenceId: leaveId, balanceAfter: user.leaveBalance.cl });
-         }
-         if (lop > 0) {
-           user.leaveBalance.lop -= lop; // Reverting LOP means subtracting
-           ledgerEntries.push({ employeeId: leave.employeeId, transactionType: 'Credit', leaveType: 'LOP', amount: -lop, reason: `Leave Cancelled (Reverted LOP) #${leaveId}`, referenceId: leaveId, balanceAfter: user.leaveBalance.lop });
-         }
-         
-         user.markModified('leaveBalance');
-         await user.save();
-         if (ledgerEntries.length > 0) await LeaveLedger.insertMany(ledgerEntries);
-       }
+        if (user) {
+          const ledgerEntries = [];
+          const breakdown = leave.deductionBreakdown;
+          
+          if (breakdown && breakdown.size > 0) {
+            // New Map-based dynamic refund
+            for (const [type, amount] of breakdown.entries()) {
+              if (amount <= 0) continue;
+              const key = type.toLowerCase();
+              if (key === 'lop') {
+                user.leaveBalance.lop = (user.leaveBalance.lop || 0) - amount;
+                ledgerEntries.push({ 
+                  employeeId: leave.employeeId, transactionType: 'Credit', leaveType: 'LOP', amount: -amount, 
+                  reason: `Leave Cancelled (Reverted LOP) #${leaveId}`, referenceId: leaveId, balanceAfter: user.leaveBalance.lop 
+                });
+              } else {
+                user.leaveBalance[key] = (user.leaveBalance[key] || 0) + amount;
+                ledgerEntries.push({ 
+                  employeeId: leave.employeeId, transactionType: 'Credit', leaveType: type.toUpperCase(), amount: amount, 
+                  reason: `Leave Cancelled (Refund) #${leaveId}`, referenceId: leaveId, balanceAfter: user.leaveBalance[key] 
+                });
+              }
+            }
+          } else {
+            // Legacy Fallback (No stored breakdown)
+            const s = new Date(leave.startDate);
+            const e = new Date(leave.endDate);
+            let diff = Math.ceil((e - s) / (1000 * 60 * 60 * 24)) + 1;
+            if (leave.isHalfDay) diff = 0.5;
+
+            // Simple split for combined types or single type
+            const types = leave.leaveType.split('+').map(t => t.trim().toLowerCase());
+            for (const t of types) {
+              const share = diff / types.length; 
+              user.leaveBalance[t] = (user.leaveBalance[t] || 0) + share;
+              ledgerEntries.push({ 
+                employeeId: leave.employeeId, transactionType: 'Credit', leaveType: t.toUpperCase(), amount: share, 
+                reason: `Leave Cancelled (Legacy Refund) #${leaveId}`, referenceId: leaveId, balanceAfter: user.leaveBalance[t] 
+              });
+            }
+          }
+          
+          user.markModified('leaveBalance');
+          await user.save();
+          if (ledgerEntries.length > 0) await LeaveLedger.insertMany(ledgerEntries);
+          
+          await unbridgeAdjacentHolidays(leave.employeeId, leave.startDate, leave.endDate, leave._id);
+          // Recalculate future leaves that might have been forced into LOP because this leave previously drained balances
+          await recalculateFutureLeaves(leave.employeeId, leave.appliedOn, leave._id);
+        }
     }
 
     leave.status = 'Cancelled';
@@ -1019,39 +1379,115 @@ app.post('/api/leave/action', authMiddleware, roleMiddleware(['HoD', 'Principal'
     const leave = await LeaveRequest.findById(leaveId);
     if (!leave) return res.status(404).json({ message: "Leave not found" });
 
+    const oldStatus = leave.status;
     leave.status = action;
-    const actionByName = req.user ? `${req.user.firstName} ${req.user.lastName} (${req.user.role})` : 'System';
-    leave.hodApproval = { status: action, comment, date: new Date(), actionBy: actionByName };
+    const fName = req.user.firstName && req.user.firstName !== 'undefined' ? req.user.firstName : (req.user.role || 'User');
+    const lName = req.user.lastName && req.user.lastName !== 'undefined' ? req.user.lastName : '';
+    const actionByName = `${fName} ${lName} (${req.user.role || 'Staff'})`.replace(/\s+/g, ' ').trim();
+    
+    if (req.user.role === 'Principal') {
+      leave.principalApproval = { status: action, comment, date: new Date(), actionBy: actionByName };
+    } else {
+      leave.hodApproval = { status: action, comment, date: new Date(), actionBy: actionByName };
+      
+      // If HoD approves OD, we can mark principal status as N/A or Approved as well
+      if (action === 'Approved' && (leave.leaveType === 'OD' || leave.leaveType.includes('OD'))) {
+          if (!leave.principalApproval) leave.principalApproval = {};
+          leave.principalApproval.status = 'Approved';
+      }
+    }
+
+    // OVERRULE: If leave was REJECTED and the OTHER role now APPROVES, we must re-deduce balance
+    const isPrincipalOverrule = oldStatus === 'Rejected' && action === 'Approved' && req.user.role === 'Principal' && leave.hodApproval.status === 'Rejected';
+    const isHodOverrule = oldStatus === 'Rejected' && action === 'Approved' && req.user.role === 'HoD' && leave.principalApproval.status === 'Rejected';
+
+    if (isPrincipalOverrule || isHodOverrule) {
+        const user = await User.findOne({ employeeId: leave.employeeId });
+        if (user) {
+            const breakdown = leave.deductionBreakdown;
+            if (breakdown && (breakdown.size > 0 || Object.keys(breakdown).length > 0)) {
+                const ledgerEntries = [];
+                const entries = breakdown instanceof Map ? breakdown.entries() : Object.entries(breakdown);
+                
+                for (const [type, amount] of entries) {
+                    if (amount <= 0) continue;
+                    const key = type.toLowerCase();
+                    const overruleLabel = isPrincipalOverrule ? "Principal" : "HoD";
+                    if (key === 'lop') {
+                        user.leaveBalance.lop = (user.leaveBalance.lop || 0) + amount;
+                        ledgerEntries.push({ 
+                          employeeId: leave.employeeId, transactionType: 'Debit', leaveType: 'LOP', amount: -amount, 
+                          reason: `Rejected Leave Accepted by ${overruleLabel} #${leaveId}`, referenceId: leaveId, balanceAfter: user.leaveBalance.lop 
+                        });
+                    } else {
+                        user.leaveBalance[key] = (user.leaveBalance[key] || 0) - amount;
+                        ledgerEntries.push({ 
+                          employeeId: leave.employeeId, transactionType: 'Debit', leaveType: type.toUpperCase(), amount: -amount, 
+                          reason: `Rejected Leave Accepted by ${overruleLabel} #${leaveId}`, referenceId: leaveId, balanceAfter: user.leaveBalance[key] 
+                        });
+                    }
+                }
+                user.markModified('leaveBalance');
+                await user.save();
+                if (ledgerEntries.length > 0) await LeaveLedger.insertMany(ledgerEntries);
+            }
+        }
+    }
 
     // Refund if Rejected
     if (action === 'Rejected') {
        const user = await User.findOne({ employeeId: leave.employeeId });
        
-       if (user && leave.deductionBreakdown) {
-         const { al, ccl, cl, lop } = leave.deductionBreakdown;
-         const ledgerEntries = [];
-         
-         if (al > 0) {
-           user.leaveBalance.al += al;
-           ledgerEntries.push({ employeeId: leave.employeeId, transactionType: 'Credit', leaveType: 'AL', amount: al, reason: `Leave Rejected (Refund) #${leaveId}`, referenceId: leaveId, balanceAfter: user.leaveBalance.al });
-         }
-         if (ccl > 0) {
-           user.leaveBalance.ccl += ccl;
-           ledgerEntries.push({ employeeId: leave.employeeId, transactionType: 'Credit', leaveType: 'CCL', amount: ccl, reason: `Leave Rejected (Refund) #${leaveId}`, referenceId: leaveId, balanceAfter: user.leaveBalance.ccl });
-         }
-         if (cl > 0) {
-           user.leaveBalance.cl += cl;
-           ledgerEntries.push({ employeeId: leave.employeeId, transactionType: 'Credit', leaveType: 'CL', amount: cl, reason: `Leave Rejected (Refund) #${leaveId}`, referenceId: leaveId, balanceAfter: user.leaveBalance.cl });
-         }
-         if (lop > 0) {
-           user.leaveBalance.lop -= lop;
-           ledgerEntries.push({ employeeId: leave.employeeId, transactionType: 'Credit', leaveType: 'LOP', amount: -lop, reason: `Leave Rejected (Reverted LOP) #${leaveId}`, referenceId: leaveId, balanceAfter: user.leaveBalance.lop });
-         }
-         
-         user.markModified('leaveBalance');
-         await user.save();
-         if (ledgerEntries.length > 0) await LeaveLedger.insertMany(ledgerEntries);
-       }
+        if (user) {
+          const ledgerEntries = [];
+          const breakdown = leave.deductionBreakdown;
+
+          if (breakdown && breakdown.size > 0) {
+            // Dynamic Refund Logic
+            for (const [type, amount] of breakdown.entries()) {
+              if (amount <= 0) continue;
+
+              const key = type.toLowerCase();
+              if (key === 'lop') {
+                user.leaveBalance.lop = (user.leaveBalance.lop || 0) - amount;
+                ledgerEntries.push({ 
+                  employeeId: leave.employeeId, transactionType: 'Credit', leaveType: 'LOP', amount: -amount, 
+                  reason: `Leave Rejected (Reverted LOP) #${leaveId}`, referenceId: leaveId, balanceAfter: user.leaveBalance.lop 
+                });
+              } else {
+                user.leaveBalance[key] = (user.leaveBalance[key] || 0) + amount;
+                ledgerEntries.push({ 
+                  employeeId: leave.employeeId, transactionType: 'Credit', leaveType: type.toUpperCase(), amount: amount, 
+                  reason: `Leave Rejected (Refund) #${leaveId}`, referenceId: leaveId, balanceAfter: user.leaveBalance[key] 
+                });
+              }
+            }
+          } else {
+            // Legacy Fallback
+            const s = new Date(leave.startDate);
+            const e = new Date(leave.endDate);
+            let diff = Math.ceil((e - s) / (1000 * 60 * 60 * 24)) + 1;
+            if (leave.isHalfDay) diff = 0.5;
+
+            const types = leave.leaveType.split('+').map(t => t.trim().toLowerCase());
+            for (const t of types) {
+              const share = diff / types.length; 
+              user.leaveBalance[t] = (user.leaveBalance[t] || 0) + share;
+              ledgerEntries.push({ 
+                employeeId: leave.employeeId, transactionType: 'Credit', leaveType: t.toUpperCase(), amount: share, 
+                reason: `Leave Rejected (Legacy Refund) #${leaveId}`, referenceId: leaveId, balanceAfter: user.leaveBalance[t] 
+              });
+            }
+          }
+          
+          user.markModified('leaveBalance');
+          await user.save();
+          if (ledgerEntries.length > 0) await LeaveLedger.insertMany(ledgerEntries);
+          
+          await unbridgeAdjacentHolidays(leave.employeeId, leave.startDate, leave.endDate, leave._id);
+          // Recalculate future leaves that might have been forced into LOP because this leave previously drained balances
+          await recalculateFutureLeaves(leave.employeeId, leave.appliedOn, leave._id);
+        }
     }
     await leave.save();
     res.json({ message: `Leave ${action} Successfully` });
@@ -1077,7 +1513,8 @@ app.get('/api/users/search', authMiddleware, async (req, res) => {
       ];
     }
 
-    const users = await User.find(queryFilter).select('employeeId firstName lastName department designation email mobile');
+    const users = await User.find(queryFilter).select('employeeId firstName lastName department designation email mobile profileImg');
+    console.log(`Backend Search Results for "${query}":`, users.map(u => ({ id: u.employeeId, hasImg: !!u.profileImg })));
     res.json(users);
   } catch (err) {
     res.status(500).json({ message: "Search failed", error: err.message });
@@ -1222,6 +1659,68 @@ app.get('/api/principal/analytics/trends', authMiddleware, roleMiddleware(['Prin
   }
 });
 
+// 12. PRINCIPAL: HOD REJECTED LEAVES
+app.get('/api/principal/hod-rejected', authMiddleware, roleMiddleware(['Principal', 'Admin']), async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0,0,0,0);
+
+    const rejectedLeaves = await LeaveRequest.find({
+      status: 'Rejected',
+      'hodApproval.status': 'Rejected',
+      startDate: { $gt: today }
+    }).sort({ startDate: 1 });
+
+    console.log(`[DEBUG] Principal Rejected Query: Found ${rejectedLeaves.length} leaves. FilterDate: ${today.toISOString()}`);
+
+    const leavesWithNames = await Promise.all(rejectedLeaves.map(async (leave) => {
+      const user = await User.findOne({ employeeId: leave.employeeId });
+      return {
+        ...leave._doc,
+        employeeName: user ? `${user.firstName} ${user.lastName}` : "Unknown",
+        department: user ? user.department || user.dept : "Unknown"
+      };
+    }));
+
+    res.json(leavesWithNames);
+  } catch (err) {
+    res.status(500).json({ message: "Server Error", error: err.message });
+  }
+});
+
+// 12b. HOD: PRINCIPAL REJECTED LEAVES
+app.get('/api/hod/principal-rejected/:dept', authMiddleware, roleMiddleware(['HoD', 'Admin']), async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const { dept } = req.params;
+
+    const rejectedLeaves = await LeaveRequest.find({
+      status: 'Rejected',
+      'principalApproval.status': 'Rejected',
+      startDate: { $gt: today }
+    }).sort({ startDate: 1 });
+
+    // Filter by department manually since department is on User model not LeaveRequest
+    const leavesWithNames = await Promise.all(rejectedLeaves.map(async (leave) => {
+      const user = await User.findOne({ employeeId: leave.employeeId });
+      if (user && (user.department === dept || user.dept === dept)) {
+        return {
+          ...leave._doc,
+          employeeName: `${user.firstName} ${user.lastName}`,
+          department: user.department || user.dept
+        };
+      }
+      return null;
+    }));
+
+    const filteredLeaves = leavesWithNames.filter(l => l !== null);
+    res.json(filteredLeaves);
+  } catch (err) {
+    res.status(500).json({ message: "Server Error", error: err.message });
+  }
+});
+
 // P7. GET LOP & LATE MARK SUMMARIES
 app.get('/api/principal/reports/lop-late-marks', authMiddleware, roleMiddleware(['Principal', 'Admin']), async (req, res) => {
   try {
@@ -1293,6 +1792,20 @@ app.post('/api/admin/employees', authMiddleware, roleMiddleware(['Admin']), asyn
       designation, mobile, gender, address, aadhaar, pan, aicteId, jntuUid, dob, doj 
     } = req.body;
     
+    if (!employeeId || !password || !firstName || !lastName || !email || !department || !designation || !mobile || !gender || !address || !aadhaar || !pan || !dob || !doj) {
+      return res.status(400).json({ message: "All employee details are required except AICTE and JNTU." });
+    }
+
+    // Strict Validation
+    const emailError = validateEmailFormat(email);
+    if (emailError) return res.status(400).json({ message: emailError });
+    const mobileError = validateMobileFormat(mobile);
+    if (mobileError) return res.status(400).json({ message: mobileError });
+    const aadhaarError = validateAadhaarFormat(aadhaar);
+    if (aadhaarError) return res.status(400).json({ message: aadhaarError });
+    const panError = validatePanFormat(pan);
+    if (panError) return res.status(400).json({ message: panError });
+
     const existing = await User.findOne({ employeeId });
     if (existing) return res.status(400).json({ message: "Employee ID already exists" });
 
@@ -1321,6 +1834,25 @@ app.get('/api/admin/employees', authMiddleware, roleMiddleware(['Admin']), async
 // C. Update Employee
 app.put('/api/admin/employees/:id', authMiddleware, roleMiddleware(['Admin']), async (req, res) => {
   try {
+    const { 
+      firstName, lastName, email, department,
+      designation, mobile, gender, address, aadhaar, pan, aicteId, jntuUid, dob, doj 
+    } = req.body;
+
+    if (!firstName || !lastName || !email || !department || !designation || !mobile || !gender || !address || !aadhaar || !pan || !dob || !doj) {
+      return res.status(400).json({ message: "All employee details are required except AICTE and JNTU." });
+    }
+
+    // Strict Validation
+    const emailError = validateEmailFormat(email);
+    if (emailError) return res.status(400).json({ message: emailError });
+    const mobileError = validateMobileFormat(mobile);
+    if (mobileError) return res.status(400).json({ message: mobileError });
+    const aadhaarError = validateAadhaarFormat(aadhaar);
+    if (aadhaarError) return res.status(400).json({ message: aadhaarError });
+    const panError = validatePanFormat(pan);
+    if (panError) return res.status(400).json({ message: panError });
+    
     const updatedUser = await User.findOneAndUpdate(
       { employeeId: req.params.id },
       req.body,
@@ -1415,8 +1947,16 @@ app.put('/api/admin/departments/:id', authMiddleware, roleMiddleware(['Admin']),
 
 app.delete('/api/admin/departments/:id', authMiddleware, roleMiddleware(['Admin']), async (req, res) => {
   try {
+    const dept = await Department.findById(req.params.id);
+    if (!dept) return res.status(404).json({ message: "Department not found" });
+
+    // Check for employees
+    const employeeCount = await User.countDocuments({ department: dept.name });
+    if (employeeCount > 0) {
+      return res.status(400).json({ message: `Cannot delete department. There are ${employeeCount} employees assigned to it.` });
+    }
+
     const deleted = await Department.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ message: "Not found" });
     res.json({ message: "Department Deleted" });
   } catch (err) { res.status(500).json({ message: "Error deleting", error: err.message }); }
 });
@@ -1427,11 +1967,11 @@ app.delete('/api/admin/departments/:id', authMiddleware, roleMiddleware(['Admin'
 app.get('/api/admin/reports/stats', authMiddleware, roleMiddleware(['Admin', 'Principal']), async (req, res) => {
   try {
     const totalEmployees = await User.countDocuments();
-    const departments = await Department.countDocuments();
+    const totalDepartments = await Department.countDocuments();
     const pendingLeaves = await LeaveRequest.countDocuments({ status: 'Pending' });
     const approvedLeaves = await LeaveRequest.countDocuments({ status: 'Approved' });
     
-    res.json({ totalEmployees, departments, pendingLeaves, approvedLeaves });
+    res.json({ totalEmployees, totalDepartments, pendingLeaves, approvedLeaves });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -1553,27 +2093,332 @@ app.get('/api/hod/leave-history/:department', authMiddleware, roleMiddleware(['H
 
 
 // --- ADMIN ROUTES: HOLIDAYS ---
+
+/**
+ * Automatically refunds leave balances if a new holiday overlaps an existing leave.
+ * 
+ * SANDWICH RULE: If the holiday falls STRICTLY between the leave's start and end date
+ * (i.e., interior day), it is considered "sandwiched" → NO refund.
+ * 
+ * Refund IS given if the holiday matches the leave's start date OR end date
+ * (even for a single-day leave where start === end === holiday).
+ * 
+ * Handles multi-day holiday ranges by iterating each day in the range.
+ */
+async function processHolidayRefunds(holidayStartDate, holidayEndDate) {
+  try {
+    const toUTCMidnight = (d) => {
+      const iso = (d instanceof Date) ? d.toISOString().slice(0, 10) : String(d).slice(0, 10);
+      const [y, m, day] = iso.split('-').map(Number);
+      return new Date(Date.UTC(y, m - 1, day));
+    };
+
+    const toUTCDateStr = (d) => toUTCMidnight(d).toISOString().slice(0, 10);
+
+    const startRange = toUTCMidnight(holidayStartDate);
+    const endRange   = toUTCMidnight(holidayEndDate);
+
+    let currentHDate = new Date(startRange);
+
+    while (currentHDate <= endRange) {
+      const hDateStr   = toUTCDateStr(currentHDate);
+      const hDateQuery = new Date(currentHDate);
+
+      const affectedLeaves = await LeaveRequest.find({
+        status: { $in: ['Approved', 'Pending', 'Auto-Approved'] },
+        startDate: { $lte: hDateQuery },
+        endDate:   { $gte: hDateQuery }
+      });
+
+      console.log(`[HOLIDAY REFUND] ${hDateStr}: processing ${affectedLeaves.length} affected leave(s).`);
+
+      for (const leave of affectedLeaves) {
+        const sStr = toUTCDateStr(leave.startDate);
+        const eStr = toUTCDateStr(leave.endDate);
+
+        // --- SANDWICH RULE ---
+        if (sStr < hDateStr && hDateStr < eStr) {
+          console.log(`[HOLIDAY REFUND] Leave #${leave._id} is SANDWICHED. No refund.`);
+          continue;
+        }
+
+        if (hDateStr === sStr || hDateStr === eStr) {
+          console.log(`[HOLIDAY REFUND] Leave #${leave._id} eligible for refund on ${hDateStr}.`);
+
+          const user = await User.findOne({ employeeId: leave.employeeId });
+          if (!user) continue;
+
+          const refundAmount = leave.isHalfDay ? 0.5 : 1.0;
+          let breakdown = leave.deductionBreakdown;
+          const ledgerEntries = [];
+          
+          // Use a plain object for tracking remaining to refund
+          let remaining = refundAmount;
+
+          // HELPER: Get value from Breakdown (handles Map or Object)
+          const getVal = (key) => {
+            if (!breakdown) return 0;
+            if (typeof breakdown.get === 'function') return breakdown.get(key) || 0;
+            return breakdown[key] || 0;
+          };
+
+          // HELPER: Set value in Breakdown
+          const setVal = (key, val) => {
+            if (!breakdown) return;
+            if (typeof breakdown.set === 'function') breakdown.set(key, val);
+            else breakdown[key] = val;
+          };
+
+          // 1. DYNAMIC REFUND (If breakdown exists)
+          const refundPriority = ['lop', 'al', 'cl', 'ccl'];
+          let hasBreakdown = false;
+          for (const type of refundPriority) {
+             if (getVal(type) > 0) hasBreakdown = true;
+          }
+
+          if (hasBreakdown) {
+            for (const type of refundPriority) {
+              if (remaining <= 0) break;
+              const currentDeducted = getVal(type);
+              if (currentDeducted > 0) {
+                const toRefund = Math.min(remaining, currentDeducted);
+                
+                if (type === 'lop') {
+                  user.leaveBalance.lop = Math.max(0, (user.leaveBalance.lop || 0) - toRefund);
+                } else {
+                  user.leaveBalance[type] = (user.leaveBalance[type] || 0) + toRefund;
+                }
+
+                setVal(type, currentDeducted - toRefund);
+                remaining -= toRefund;
+
+                ledgerEntries.push({
+                  employeeId: leave.employeeId,
+                  transactionType: 'Credit',
+                  leaveType: type.toUpperCase(),
+                  amount: type === 'lop' ? -toRefund : toRefund,
+                  reason: `Holiday Refund (${hDateStr}) for Leave #${leave._id}`,
+                  referenceId: leave._id,
+                  balanceAfter: user.leaveBalance[type] ?? user.leaveBalance.lop
+                });
+              }
+            }
+          } 
+          else {
+            // 2. LEGACY FALLBACK (If no breakdown)
+            console.log(`[HOLIDAY REFUND] Leave #${leave._id} has no breakdown. Using Legacy Fallback.`);
+            const types = leave.leaveType.split('+').map(t => t.trim().toLowerCase());
+            // Filter out LOP to prioritize it last, but for legacy we'll just try the first type
+            const targetType = types[0] || 'cl';
+            const key = targetType === 'leave' ? 'cl' : targetType;
+
+            if (key === 'lop') {
+              user.leaveBalance.lop = Math.max(0, (user.leaveBalance.lop || 0) - remaining);
+            } else {
+              user.leaveBalance[key] = (user.leaveBalance[key] || 0) + remaining;
+            }
+
+            ledgerEntries.push({
+              employeeId: leave.employeeId,
+              transactionType: 'Credit',
+              leaveType: key.toUpperCase(),
+              amount: key === 'lop' ? -remaining : remaining,
+              reason: `Holiday Refund (Legacy) (${hDateStr}) for Leave #${leave._id}`,
+              referenceId: leave._id,
+              balanceAfter: user.leaveBalance[key] ?? user.leaveBalance.lop
+            });
+            remaining = 0;
+          }
+
+          user.markModified('leaveBalance');
+          await user.save();
+          leave.markModified('deductionBreakdown');
+          await leave.save();
+
+          if (ledgerEntries.length > 0) {
+            await LeaveLedger.insertMany(ledgerEntries);
+            console.log(`[HOLIDAY REFUND] Leave #${leave._id}: Processed refunds. Remaining: ${remaining}`);
+          }
+        }
+      }
+      currentHDate.setUTCDate(currentHDate.getUTCDate() + 1);
+    }
+    console.log(`[HOLIDAY REFUND] Done. Range: ${toUTCDateStr(holidayStartDate)} → ${toUTCDateStr(holidayEndDate)}`);
+  } catch (err) {
+    console.error('[HOLIDAY REFUND] Error:', err);
+  }
+}
+
+/**
+ * REVERSE REFUND: When a holiday is DELETED or its range changes, we must
+ * re-deduct the leave days that were previously refunded.
+ */
+async function processHolidayReverseRefunds(holidayStartDate, holidayEndDate) {
+  try {
+    const toUTCMidnight = (d) => {
+      const iso = (d instanceof Date) ? d.toISOString().slice(0, 10) : String(d).slice(0, 10);
+      const [y, m, day] = iso.split('-').map(Number);
+      return new Date(Date.UTC(y, m - 1, day));
+    };
+
+    const toUTCDateStr = (d) => toUTCMidnight(d).toISOString().slice(0, 10);
+
+    const startRange = toUTCMidnight(holidayStartDate);
+    const endRange   = toUTCMidnight(holidayEndDate);
+
+    let currentHDate = new Date(startRange);
+
+    while (currentHDate <= endRange) {
+      const hDateStr = toUTCDateStr(currentHDate);
+      
+      console.log(`[HOLIDAY REVERSAL] Processing date: ${hDateStr}...`);
+
+      // Find all ledger entries that were "Holiday Refunds" for this specific date
+      // We look for "Holiday Refund" in the reason
+      const refundEntries = await LeaveLedger.find({
+        transactionType: 'Credit',
+        reason: new RegExp(`Refund.*${hDateStr}`, 'i')
+      });
+
+      console.log(`[HOLIDAY REVERSAL] Found ${refundEntries.length} refund entry(ies) to reverse.`);
+
+      for (const entry of refundEntries) {
+        const leave = await LeaveRequest.findById(entry.referenceId);
+        const user  = await User.findOne({ employeeId: entry.employeeId });
+
+        if (!leave || !user) {
+          console.warn(`[HOLIDAY REVERSAL] Leave or User missing for ledger entry ${entry._id}. skipping.`);
+          continue;
+        }
+
+        const type = entry.leaveType.toLowerCase();
+        const amount = Math.abs(entry.amount); // The amount we previously credited (or LOP we reduced)
+
+        console.log(`[HOLIDAY REVERSAL] Reversing ${amount} ${type} for ${user.employeeId} (Leave #${leave._id})`);
+
+        // Update user balances (Debit)
+        if (type === 'lop') {
+          // LOP is a positive number representing days owed. Crediting it made it smaller.
+          // Debiting it (reversing) makes it larger again.
+          user.leaveBalance.lop = (user.leaveBalance.lop || 0) + amount;
+        } else {
+          user.leaveBalance[type] = Math.max(0, (user.leaveBalance[type] || 0) - amount);
+        }
+
+        // Update leave breakdown (restore the deduction)
+        let breakdown = leave.deductionBreakdown;
+        const setVal = (key, val) => {
+          if (!breakdown) return;
+          if (typeof breakdown.set === 'function') breakdown.set(key, val);
+          else breakdown[key] = val;
+        };
+        const getVal = (key) => {
+          if (!breakdown) return 0;
+          if (typeof breakdown.get === 'function') return breakdown.get(key) || 0;
+          return breakdown[key] || 0;
+        };
+
+        setVal(type, getVal(type) + amount);
+
+        // Save updates
+        user.markModified('leaveBalance');
+        await user.save();
+        leave.markModified('deductionBreakdown');
+        await leave.save();
+
+        // Add a NEW Debit entry to show the reversal
+        await new LeaveLedger({
+          employeeId: user.employeeId,
+          transactionType: 'Debit',
+          leaveType: entry.leaveType,
+          amount: type === 'lop' ? amount : -amount, // Debit is negative for AL/CL, positive for LOP (owed)
+          reason: `Holiday Cancelled/Shifted - Re-deducting leave for ${hDateStr}`,
+          referenceId: leave._id,
+          balanceAfter: user.leaveBalance[type] ?? user.leaveBalance.lop
+        }).save();
+      }
+
+      currentHDate.setUTCDate(currentHDate.getUTCDate() + 1);
+    }
+    console.log(`[HOLIDAY REVERSAL] Done. Range: ${toUTCDateStr(holidayStartDate)} → ${toUTCDateStr(holidayEndDate)}`);
+  } catch (err) {
+    console.error('[HOLIDAY REVERSAL] Error:', err);
+  }
+}
+
 app.post('/api/admin/holidays', authMiddleware, roleMiddleware(['Admin']), async (req, res) => {
   try {
-    const newHoliday = new Holiday(req.body);
+    console.log("[ADMIN HOLIDAY] Received POST:", req.body);
+    const { name, startDate, endDate, type } = req.body;
+    if (!name || !startDate || !endDate) {
+      return res.status(400).json({ message: "Name, StartDate, and EndDate are required." });
+    }
+    const newHoliday = new Holiday({ name, startDate, endDate, type });
     await newHoliday.save();
-    res.json({ message: "Holiday Created successfully", holiday: newHoliday });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    console.log("[ADMIN HOLIDAY] Holiday saved, processing refunds...");
+    
+    // Trigger Refund Logic for the range
+    await processHolidayRefunds(startDate, endDate);
+    
+    res.json({ message: "Holiday Created successfully and affected leaves refunded.", holiday: newHoliday });
+  } catch (err) { 
+    console.error("[ADMIN HOLIDAY] Error in POST:", err);
+    res.status(500).json({ error: err.message }); 
+  }
 });
 
 app.put('/api/admin/holidays/:id', authMiddleware, roleMiddleware(['Admin']), async (req, res) => {
   try {
-    const updated = await Holiday.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!updated) return res.status(404).json({ message: "Holiday not found" });
-    res.json({ message: "Holiday Updated", holiday: updated });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    console.log("[ADMIN HOLIDAY] Received PUT for ID:", req.params.id, "Body:", req.body);
+    const { name, startDate, endDate, type } = req.body;
+    
+    // FETCH OLD STATE FIRST to reverse old refunds if dates change
+    const oldHoliday = await Holiday.findById(req.params.id);
+    if (!oldHoliday) return res.status(404).json({ message: "Holiday not found" });
+
+    // Normalize dates to YYYY-MM-DD for comparison
+    const norm = (d) => new Date(d).toISOString().slice(0, 10);
+    const datesChanged = norm(oldHoliday.startDate) !== norm(startDate) || 
+                        norm(oldHoliday.endDate) !== norm(endDate);
+
+    const updated = await Holiday.findByIdAndUpdate(req.params.id, { name, startDate, endDate, type }, { new: true });
+    
+    if (datesChanged) {
+      console.log("[ADMIN HOLIDAY] Holiday dates changed. Reversing old refunds and applying new ones...");
+      await processHolidayReverseRefunds(oldHoliday.startDate, oldHoliday.endDate);
+      await processHolidayRefunds(startDate, endDate);
+    }
+
+    res.json({ message: "Holiday Updated and affected leaves checked for adjustments.", holiday: updated });
+  } catch (err) { 
+    console.error("[ADMIN HOLIDAY] Error in PUT:", err);
+    res.status(500).json({ error: err.message }); 
+  }
 });
 
 app.delete('/api/admin/holidays/:id', authMiddleware, roleMiddleware(['Admin']), async (req, res) => {
   try {
+    console.log("[ADMIN HOLIDAY] Received DELETE for ID:", req.params.id);
+    
+    const holiday = await Holiday.findById(req.params.id);
+    if (!holiday) {
+      console.warn("[ADMIN HOLIDAY] Holiday not found for deletion:", req.params.id);
+      return res.status(404).json({ message: "Holiday not found" });
+    }
+
+    // FIRST reverse any refunds given for this holiday
+    console.log(`[ADMIN HOLIDAY] Reversing refunds for ${holiday.name} (${holiday.startDate.toISOString()} -> ${holiday.endDate.toISOString()})`);
+    await processHolidayReverseRefunds(holiday.startDate, holiday.endDate);
+
+    // THEN delete it
     await Holiday.findByIdAndDelete(req.params.id);
-    res.json({ message: "Holiday Deleted" });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    console.log("[ADMIN HOLIDAY] Holiday deleted successfully.");
+    
+    res.json({ message: "Holiday Deleted and leave balances adjusted." });
+  } catch (err) { 
+    console.error("[ADMIN HOLIDAY] Error in DELETE:", err);
+    res.status(500).json({ error: err.message }); 
+  }
 });
 
 // GET Holidays (Public for all logged in)
@@ -1600,6 +2445,17 @@ app.get('/api/users/list', authMiddleware, async (req, res) => {
 // B. Create Adjustment Request
 app.post('/api/adjustments/create', authMiddleware, async (req, res) => {
   try {
+    const { date } = req.body;
+    if (date) {
+      const targetDate = new Date(date);
+      const isHoliday = await Holiday.findOne({
+        startDate: { $lte: targetDate },
+        endDate: { $gte: targetDate }
+      });
+      if (isHoliday) {
+        return res.status(400).json({ message: `Cannot apply adjustment on a holiday: ${isHoliday.name}` });
+      }
+    }
     const newRequest = new AdjustmentRequest(req.body);
     await newRequest.save();
     res.json({ message: "Adjustment Request Sent!" });
@@ -1640,7 +2496,17 @@ app.get('/api/adjustments/outgoing/:id', authMiddleware, async (req, res) => {
 app.post('/api/adjustments/respond', authMiddleware, async (req, res) => {
   try {
     const { requestId, status } = req.body;
-    await AdjustmentRequest.findByIdAndUpdate(requestId, { status });
+    
+    const adj = await AdjustmentRequest.findById(requestId);
+    if (!adj) return res.status(404).json({ message: "Request not found" });
+
+    // Authorization check
+    if (adj.targetEmployeeId !== req.user.employeeId && req.user.role !== 'Admin') {
+      return res.status(403).json({ message: "Access denied: You can only respond to requests sent to you." });
+    }
+
+    adj.status = status;
+    await adj.save();
     res.json({ message: `Request ${status}` });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -1807,9 +2673,19 @@ app.post('/api/admin/leave-types', authMiddleware, roleMiddleware(['Admin']), as
     const existing = await LeaveType.findOne({ code: code.toLowerCase() });
     if (existing) return res.status(400).json({ message: "Leave type with this code already exists" });
 
-    const newType = new LeaveType({ code: code.toLowerCase(), name, defaultDays });
+    const newType = new LeaveType({ code: code.toLowerCase(), name, defaultDays: Number(defaultDays) });
     await newType.save();
-    res.json({ message: "Leave type created successfully", leaveType: newType });
+
+    // AUTO-CREDIT: Give this leave to all existing employees
+    if (Number(defaultDays) > 0) {
+      const balanceField = code.toLowerCase();
+      await User.updateMany(
+        { role: 'Employee' }, 
+        { $set: { [`leaveBalance.${balanceField}`]: Number(defaultDays) } }
+      );
+    }
+
+    res.json({ message: "Leave type created successfully and credited to all employees", leaveType: newType });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1902,6 +2778,15 @@ app.put('/api/messages/read/:id', authMiddleware, roleMiddleware(['Admin', 'Prin
 });
 
 // --- Start Server ---
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
+});
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`❌ Port ${PORT} is already in use. Please kill the process using it.`);
+    process.exit(1);
+  } else {
+    console.error('❌ Server error:', err);
+  }
 });

@@ -7,6 +7,7 @@ const AdminAllocateLeave = () => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [leaveTypes, setLeaveTypes] = useState([]);
 
   const [formData, setFormData] = useState({
     employeeId: '',
@@ -31,7 +32,16 @@ const AdminAllocateLeave = () => {
         showToast('Failed to load employee list', 'error');
       }
     };
+    const fetchLeaveTypes = async () => {
+        try {
+          const res = await apiFetch('http://localhost:5000/api/leave-types');
+          if (res.ok) setLeaveTypes(await res.json());
+        } catch (err) {
+          console.error("Failed to fetch leave types", err);
+        }
+    };
     fetchEmployees();
+    fetchLeaveTypes();
   }, []);
 
   const handleInputChange = (e) => {
@@ -138,10 +148,11 @@ const AdminAllocateLeave = () => {
             <div style={styles.inputGroup}>
               <label style={styles.label}>Leave Type *</label>
               <select name="leaveType" value={formData.leaveType} onChange={handleInputChange} required style={styles.input}>
-                <option value="CL">Casual Leave (CL)</option>
-                <option value="CCL">Compensatory Leave (CCL)</option>
-                <option value="AL">Academic Leave (AL)</option>
-                <option value="LOP">Loss of Pay (LOP)</option>
+                {leaveTypes.map(type => (
+                  <option key={type._id} value={type.code.toUpperCase()}>
+                    {type.name} ({type.code.toUpperCase()})
+                  </option>
+                ))}
               </select>
             </div>
 

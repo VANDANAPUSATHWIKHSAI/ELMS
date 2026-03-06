@@ -33,6 +33,7 @@ const Sidebar = ({ isOpen, isMobile, onToggle, onClose }) => {
   const hodItems = [
     // Points to the new Approvals page
     { id: 'approvals', label: 'Approvals', icon: <FileCheck size={22} />, path: '/approvals' },
+    { id: 'rejected-leaves', label: 'Rejected Leaves', icon: <CalendarOff size={22} />, path: '/hod/rejected-review' },
     { id: 'reports', label: 'Reports', icon: <ClipboardList size={22} />, path: '/reports' }, 
   ];
 
@@ -61,6 +62,7 @@ const Sidebar = ({ isOpen, isMobile, onToggle, onClose }) => {
       { id: 'principal-dashboard', label: 'Dashboard', icon: <Home size={22} />, path: '/principal-dashboard' },
       { id: 'principal-employees', label: 'All Employees', icon: <Users size={22} />, path: '/principal/employees' },
       { id: 'principal-approvals', label: 'Leave Review', icon: <FileCheck size={22} />, path: '/principal/approvals' },
+      { id: 'principal-rejected', label: 'Rejected Leaves', icon: <CalendarOff size={22} />, path: '/principal/rejected-review' },
       { id: 'principal-analytics', label: 'Trends & Analytics', icon: <BarChart2 size={22} />, path: '/principal/analytics' },
       { id: 'principal-reports', label: 'Reports', icon: <Globe size={22} />, path: '/principal/reports' },
       { id: 'principal-messages', label: 'Messages', icon: <Mail size={22} />, path: '/principal/messages' },
@@ -81,7 +83,8 @@ const Sidebar = ({ isOpen, isMobile, onToggle, onClose }) => {
         ...styles.sidebar,
         width: isMobile ? '100%' : sidebarWidth,
         height: isMobile ? '100dvh' : '100vh',
-        minHeight: '100vh',
+        maxHeight: isMobile ? '100dvh' : '100vh',
+        overflow: 'hidden',            /* cap at viewport — children scroll internally */
         opacity: isMobile ? (isOpen ? 1 : 0) : 1,
         pointerEvents: isMobile ? (isOpen ? 'auto' : 'none') : 'auto',
         position: isMobile ? 'fixed' : 'relative',
@@ -95,18 +98,19 @@ const Sidebar = ({ isOpen, isMobile, onToggle, onClose }) => {
         <div style={{
           ...styles.header, 
           padding: isOpen ? '0 20px' : '0', 
-          justifyContent: (isOpen && !isMobile) || (isMobile && isOpen) ? 'flex-start' : 'center'
+          justifyContent: (isOpen && !isMobile) || (isMobile && isOpen) ? 'flex-start' : 'center',
+          borderLeft: isOpen ? '4px solid transparent' : '4px solid transparent', // Keep constant for alignment
         }}>
           {!isMobile && (
             <button onClick={onToggle} style={styles.menuBtn} title="Toggle Menu">
-              <Menu size={24} color="#fff" />
+              <Menu size={22} color="#fff" />
             </button>
           )}
 
           <div style={{
              ...styles.logoWrapper,
-             display: (isOpen || !isMobile) ? 'flex' : 'none',
-             opacity: isOpen ? 1 : (isMobile ? 0 : 0),
+             display: isOpen ? 'flex' : 'none',
+             opacity: isOpen ? 1 : 0,
           }}>
              <span style={styles.logoText}>KMIT <span style={{color: 'var(--primary)'}}>ELMS</span></span>
           </div>
@@ -118,7 +122,7 @@ const Sidebar = ({ isOpen, isMobile, onToggle, onClose }) => {
           )}
         </div>
 
-        {/* MENU ITEMS */}
+        {/* MENU ITEMS — scrollable region so logout stays pinned */}
         <div style={styles.menuList}>
           {menuItems.map((item) => {
             const isActive = location.pathname === item.path;
@@ -137,7 +141,10 @@ const Sidebar = ({ isOpen, isMobile, onToggle, onClose }) => {
                   style={{
                     ...styles.menuItem, 
                     justifyContent: isOpen ? 'flex-start' : 'center', 
-                    padding: isOpen ? '12px 24px' : '16px 0',
+                    /* Tighter padding on mobile so all items fit without scrolling */
+                    padding: isOpen
+                      ? (isMobile ? '9px 20px' : '12px 24px')
+                      : '14px 0',
                     color: isActive ? '#fff' : '#94a3b8',
                     background: isActive ? 'linear-gradient(90deg, rgba(241,127,8,0.1) 0%, rgba(0,0,0,0) 100%)' : 'transparent',
                     borderLeft: isActive && isOpen ? `4px solid var(--primary)` : '4px solid transparent',
@@ -165,6 +172,7 @@ const Sidebar = ({ isOpen, isMobile, onToggle, onClose }) => {
           ...styles.logoutBtn,
           justifyContent: isOpen ? 'flex-start' : 'center',
           padding: isOpen ? '20px 24px' : '20px 0',
+          borderLeft: isOpen ? '4px solid transparent' : '4px solid transparent', // Align with menu items
         }}>
           <div style={{width: '24px', display: 'flex', justifyContent: 'center', alignItems: 'center'}}>
             <LogOut size={22} />
@@ -193,16 +201,26 @@ const Sidebar = ({ isOpen, isMobile, onToggle, onClose }) => {
 
 const styles = {
   sidebar: { 
-    backgroundColor: 'var(--bg-sidebar)', display: 'flex', flexDirection: 'column', 
-    height: '100dvh', maxHeight: '100dvh', zIndex: 1000, transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', 
-    overflowX: 'hidden', whiteSpace: 'nowrap', flexShrink: 0 
+    backgroundColor: 'var(--bg-sidebar)',
+    display: 'flex',
+    flexDirection: 'column',
+    /* height is set inline; overflow:hidden is also set inline */
+    zIndex: 1000,
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', 
+    overflowX: 'hidden',
+    whiteSpace: 'nowrap',
+    flexShrink: 0 
   },
   overlay: {
-    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 999,
+    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 999,
     backdropFilter: 'blur(4px)'
   },
   header: { 
-    display: 'flex', alignItems: 'center', height: '70px', transition: 'padding 0.3s ease'
+    display: 'flex', alignItems: 'center',
+    height: '60px',           /* slightly shorter on mobile helps fit items */
+    flexShrink: 0,            /* never shrink header */
+    transition: 'padding 0.3s ease'
   },
   menuBtn: { 
     background: 'none', border: 'none', cursor: 'pointer', display: 'flex', 
@@ -210,38 +228,44 @@ const styles = {
     transition: 'background 0.2s'
   },
   logoWrapper: { 
-    display: 'flex', alignItems: 'center', marginLeft: '12px', transition: 'opacity 0.3s ease', overflow: 'hidden' 
+    display: 'flex', alignItems: 'center', marginLeft: '12px',
+    transition: 'opacity 0.3s ease', overflow: 'hidden' 
   },
   logoText: { color: '#fff', fontSize: '18px', fontWeight: 'bold' },
   menuList: { 
-    flex: 1, 
-    marginTop: '5px', 
-    overflowY: 'auto',
-    paddingBottom: '10px',
+    flex: 1,                  /* takes remaining height between header and logout */
+    minHeight: 0,             /* CRITICAL: allows flex child to shrink below content size */
+    marginTop: '4px', 
+    overflowY: 'auto',        /* scroll only the item list, not the whole sidebar */
+    overflowX: 'hidden',
     display: 'flex',
     flexDirection: 'column'
   },
   sectionDivider: {
     color: '#64748b', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase',
-    padding: '10px 24px 5px 24px', letterSpacing: '1px'
+    padding: '8px 24px 4px 24px', letterSpacing: '1px',
+    flexShrink: 0
   },
   menuItem: { 
     display: 'flex', alignItems: 'center', width: '100%', border: 'none', 
     cursor: 'pointer', transition: 'all 0.2s ease', overflow: 'hidden', background: 'none',
-    minHeight: '44px' // Ensure a minimum touch target size while saving space
+    minHeight: '40px',        /* touch-friendly but compact */
+    flexShrink: 0
   },
   menuText: { fontSize: '13px', fontWeight: '500', marginLeft: '12px', whiteSpace: 'nowrap' },
   logoutBtn: { 
     display: 'flex', alignItems: 'center', border: 'none', background: 'none', 
-    color: '#f87171', cursor: 'pointer', borderTop: '1px solid rgba(255,255,255,0.1)', width: '100%',
-    paddingBottom: window.innerWidth <= 768 ? '30px' : '20px',
-    marginTop: 'auto', // Push to the absolute bottom of the flex container
-    minHeight: '60px'
+    color: '#f87171', cursor: 'pointer',
+    borderTop: '1px solid rgba(255,255,255,0.1)',
+    width: '100%',
+    padding: '16px 24px',     /* uniform padding — no window.innerWidth at build time */
+    flexShrink: 0             /* never shrink logout row */
   },
   mobileMenuTrigger: {
     position: 'fixed', top: '10px', left: '10px', width: '45px', height: '45px',
     borderRadius: '10px', backgroundColor: 'var(--primary)', display: 'flex', 
-    alignItems: 'center', justifyContent: 'center', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+    alignItems: 'center', justifyContent: 'center', border: 'none',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
     zIndex: 900, cursor: 'pointer'
   }
 };

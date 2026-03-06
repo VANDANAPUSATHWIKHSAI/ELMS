@@ -192,7 +192,16 @@ const PrincipalReports = () => {
                         <td style={styles.td}>
                           {formatDate(req.startDate)} <br/><span style={{color: '#94a3b8', fontSize: '11px'}}>to</span><br/> {formatDate(req.endDate)}
                         </td>
-                        <td style={styles.td}>{getStatusBadge(req.status, req.hodApproval?.actionBy)}</td>
+                        <td style={styles.td}>
+                          {getStatusBadge(
+                            req.status, 
+                            (req.status === 'Approved' || req.status === 'Accepted' || req.status === 'Auto-Approved')
+                              ? (req.principalApproval?.status === 'Approved' ? req.principalApproval.actionBy : req.hodApproval?.actionBy)
+                              : (req.status === 'Rejected' 
+                                  ? (req.principalApproval?.status === 'Rejected' ? req.principalApproval.actionBy : req.hodApproval?.actionBy)
+                                  : null)
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

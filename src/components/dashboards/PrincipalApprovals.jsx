@@ -1,9 +1,10 @@
 import { apiFetch } from "../../utils/api";
 import React, { useState, useEffect } from 'react';
 import { Check, X, Search, FileText, AlertTriangle, Clock as ClockIcon } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { useNotification } from '../../context/NotificationContext';
 
 const PrincipalApprovals = () => {
+  const { notify } = useNotification();
   const [activeTab, setActiveTab] = useState('pending'); // 'pending', 'escalated'
   const [requests, setRequests] = useState([]);
   const [escalations, setEscalations] = useState([]);
@@ -28,7 +29,7 @@ const PrincipalApprovals = () => {
         else setEscalations(data);
       }
     } catch (err) {
-      toast.error("Failed to load requests");
+      notify("Failed to load requests");
     } finally {
       setLoading(false);
     }
@@ -44,15 +45,15 @@ const PrincipalApprovals = () => {
         body: JSON.stringify({ leaveId: selectedLeave._id, action: actionType, comment })
       });
       if (res.ok) {
-        toast.success(`Leave ${actionType} Successfully`);
+        notify(`Leave ${actionType} Successfully`);
         setSelectedLeave(null);
         setComment('');
         fetchRequests();
       } else {
-         toast.error("Failed to process action");
+         notify("Failed to process action");
       }
     } catch (err) {
-      toast.error("Error processing request");
+      notify("Error processing request");
     }
   };
 
@@ -140,7 +141,9 @@ const PrincipalApprovals = () => {
                      <td style={{...styles.td, color: kmitOrange, fontWeight: '600'}}>{req.department}</td>
                      <td style={styles.td}>
                        <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
-                         <span style={styles.typeBadge}>{req.leaveType}</span>
+                         <span style={styles.typeBadge}>
+                           {req.leaveType} {req.isHalfDay ? `(${req.halfDayType})` : ''}
+                         </span>
                          <span style={{fontSize: '12px', color: '#64748b'}}>{req.reason}</span>
                          {req.documentUrl && (
                            <a 

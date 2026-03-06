@@ -227,7 +227,19 @@ const Reports = () => {
                           <td style={styles.td}>
                              {formatDate(req.startDate)} to {formatDate(req.endDate)}
                           </td>
-                          <td style={styles.td}>{getStatusBadge(req.status)}</td>
+                          <td style={styles.td}>
+                            <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
+                              {getStatusBadge(req.status)}
+                              {req.status !== 'Pending' && (
+                                <span style={{fontSize: '11px', color: '#64748b', fontStyle: 'italic'}}>
+                                  by { (req.status === 'Approved' || req.status === 'Accepted' || req.status === 'Auto-Approved')
+                                    ? (req.principalApproval?.status === 'Approved' ? req.principalApproval.actionBy : req.hodApproval?.actionBy)
+                                    : (req.principalApproval?.status === 'Rejected' ? req.principalApproval.actionBy : req.hodApproval?.actionBy)
+                                  }
+                                </span>
+                              )}
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>

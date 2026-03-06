@@ -1,10 +1,12 @@
 import { apiFetch } from "../../utils/api";
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useNotification } from '../../context/NotificationContext';
 import { Plus, Trash2, CheckCircle, XCircle, Upload, FileText, X } from 'lucide-react';
 
 const ApplyLeave = () => {
   const { user } = useAuth();
+  const { notify } = useNotification();
   
   const [formData, setFormData] = useState({
     leaveType: 'Standard', startDate: '', endDate: '', reason: ''
@@ -37,13 +39,7 @@ const ApplyLeave = () => {
     setMinDate(`${yyyy}-${mm}-${dd}`);
   }, []);
 
-  // --- TOAST STATE ---
-  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
 
-  const showToast = (message, type = 'success') => {
-    setToast({ visible: true, message, type });
-    setTimeout(() => setToast({ visible: false, message: '', type: 'success' }), 3000);
-  };
 
   const fetchLeaveTypes = async () => {
     try {
@@ -117,17 +113,41 @@ const ApplyLeave = () => {
     e.preventDefault();
 
     if (formData.startDate < minDate) {
-      showToast("Cannot apply leave for past dates or after 4 PM today.", "error");
+      notify("Cannot apply leave for past dates or after 4 PM today.", "error");
       return;
     }
 
     if (formData.endDate < formData.startDate) {
-      showToast("End date cannot be earlier than start date.", "error");
+      notify("End date cannot be earlier than start date.", "error");
       return;
     }
 
     if (formData.leaveType === 'AL' && !document) {
-      showToast("Supporting document is mandatory for Academic Leave (AL).", "error");
+      notify("Supporting document is mandatory for Academic Leave (AL).", "error");
+      return;
+    }
+
+    // --- Dynamic Balance Validation ---
+    const start = new Date(formData.startDate);
+    const end = new Date(formData.endDate);
+    let requestedDays = 0;
+
+    if (isHalfDay) {
+      requestedDays = 0.5;
+    } else {
+      // Basic day count
+      requestedDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+    }
+
+    const leaveTypeKey = formData.leaveType.toLowerCase();
+    const availableBalance = leaveBalance[leaveTypeKey] ?? 0;
+
+    // Strict validation for custom types (anything except OD, and if not Standard overflow types)
+    // Actually, following user's "any leave type" - usually non-standard ones should be strict.
+    const isCustomType = !['STANDARD', 'OD', 'AL', 'CL', 'CCL'].includes(formData.leaveType.toUpperCase());
+
+    if (isCustomType && requestedDays > availableBalance) {
+      notify(`Insufficient balance for ${formData.leaveType}. Available: ${availableBalance}, Requested: ${requestedDays}`, "error");
       return;
     }
 
@@ -148,8 +168,8 @@ const ApplyLeave = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const baseUrl = 'http://localhost:5000'.replace('localhost', window.location.hostname);
-      const res = await fetch(`${baseUrl}/api/leave/apply`, {
+      
+      const res = await apiFetch(`http://localhost:5000/api/leave/apply`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: payload
@@ -157,28 +177,23 @@ const ApplyLeave = () => {
       
       const data = await res.json();
       if (res.ok) {
-        showToast("Leave Applied Successfully!", "success");
+        notify("Leave Applied Successfully!", "success");
         setFormData({ leaveType: isSpecialLeave ? 'AL' : 'Standard', startDate: '', endDate: '', reason: '' }); 
         setIsHalfDay(false);
         setDocument(null);
         setAdjustments([]);
         fetchUserData(); // Refresh balances
       } else {
-        showToast(data.message || "Failed to apply.", "error");
+        notify(data.message || "Failed to apply.", "error");
       }
     } catch (err) { 
-        showToast("Network error. Server might be down.", "error");
+        notify("Network error. Server might be down.", "error");
     }
   };
 
   return (
     <div style={styles.container}>
-      {toast.visible && (
-        <div style={styles.toast}>
-          {toast.type === 'success' ? <CheckCircle size={18} color="#4ade80" /> : <XCircle size={18} color="white" />}
-          {toast.message}
-        </div>
-      )}
+
 
       <header style={styles.header}>
         <h1 style={styles.pageTitle}>Apply for Leave</h1>
@@ -188,11 +203,25 @@ const ApplyLeave = () => {
         <div style={styles.formCard}>
           <div style={styles.formHeader}>
             <div style={styles.balanceSection}>
-              {Object.entries(leaveBalance).map(([k, v]) => (
-                <div key={k} style={styles.balanceBadge}>
-                  {k.toUpperCase()}: <span style={{ color: '#F17F08' }}>{v}</span>
-                </div>
-              ))}
+              {leaveTypes.map(type => {
+                const code = type.code.toUpperCase();
+                const balKey = type.code.toLowerCase();
+                const balance = leaveBalance[balKey] ?? 0;
+                return (
+                  <div key={type._id} style={styles.balanceBadge}>
+                    {code}: <span style={{ color: '#F17F08' }}>{balance}</span>
+                  </div>
+                );
+              })}
+              {/* If leaveBalance has something not in leaveTypes (like LOP if not defined) */}
+              {Object.entries(leaveBalance)
+                .filter(([k]) => k.toLowerCase() === 'lop' && !leaveTypes.some(t => t.code.toLowerCase() === 'lop'))
+                .map(([k, v]) => (
+                  <div key={k} style={styles.balanceBadge}>
+                    {k.toUpperCase()}: <span style={{ color: '#F17F08' }}>{v}</span>
+                  </div>
+                ))
+              }
             </div>
           </div>
 
@@ -214,8 +243,17 @@ const ApplyLeave = () => {
               {isSpecialLeave && (
                 <div style={styles.specialFields}>
                   <select name="leaveType" value={formData.leaveType} onChange={handleChange} style={styles.input} required>
-                    <option value="AL">Academic Leave (AL) - Max 5/yr</option>
+                    <option value="">-- Choose Leave Type --</option>
+                    {/* Include Hardcoded OD as it's a core institutional leave type */}
                     <option value="OD">On Duty (OD)</option>
+                    
+                    {leaveTypes
+                      .filter(type => !['CL', 'CCL', 'LOP'].includes(type.code.toUpperCase()))
+                      .map(type => (
+                      <option key={type._id} value={type.code.toUpperCase()}>
+                        {type.name} ({type.code.toUpperCase()})
+                      </option>
+                    ))}
                   </select>
                   
                   <div style={styles.uploaderSection}>
@@ -333,10 +371,15 @@ const ApplyLeave = () => {
               </div>
               {adjustments.map((adj, index) => (
                 <div key={index} style={styles.adjRow}>
-                  <input type="date" value={adj.date} onChange={(e) => updateAdjustment(index, 'date', e.target.value)} style={styles.smallInput} />
-                  <input type="text" placeholder="Period" value={adj.period} onChange={(e) => updateAdjustment(index, 'period', e.target.value)} style={styles.smallInput} />
-                  <input type="text" placeholder="Yr/Sec" value={adj.yearAndSection} onChange={(e) => updateAdjustment(index, 'yearAndSection', e.target.value)} style={styles.smallInput} />
-                  <input type="text" placeholder="Sub ID" value={adj.adjustedWith} onChange={(e) => updateAdjustment(index, 'adjustedWith', e.target.value)} style={styles.smallInput} />
+                  <input required type="date" value={adj.date} onChange={(e) => updateAdjustment(index, 'date', e.target.value)} style={styles.smallInput} />
+                  <select required value={adj.period} onChange={(e) => updateAdjustment(index, 'period', e.target.value)} style={styles.smallInput}>
+                    <option value="">-- Period --</option>
+                    <option value="1st Hour">1st Hour</option><option value="2nd Hour">2nd Hour</option><option value="3rd Hour">3rd Hour</option>
+                    <option value="4th Hour">4th Hour</option><option value="5th Hour">5th Hour</option><option value="6th Hour">6th Hour</option>
+                    <option value="7th Hour">7th Hour</option>
+                  </select>
+                  <input required type="text" placeholder="Yr/Sec" value={adj.yearAndSection} onChange={(e) => updateAdjustment(index, 'yearAndSection', e.target.value)} style={styles.smallInput} />
+                  <input required type="text" placeholder="Sub ID" value={adj.adjustedWith} onChange={(e) => updateAdjustment(index, 'adjustedWith', e.target.value)} style={styles.smallInput} />
                   <button type="button" onClick={() => removeAdjustment(index)} style={styles.delBtn}><Trash2 size={14} /></button>
                 </div>
               ))}
@@ -355,12 +398,7 @@ const styles = {
   header: { marginBottom: window.innerWidth <= 768 ? '15px' : '30px', textAlign: 'center' },
   pageTitle: { fontSize: window.innerWidth <= 768 ? '22px' : '28px', color: '#1e293b', fontWeight: '800', margin: 0 },
   
-  toast: {
-    position: 'fixed', bottom: '30px', left: '50%', transform: 'translateX(-50%)',
-    backgroundColor: '#1e293b', color: 'white', padding: '12px 24px', borderRadius: '50px',
-    boxShadow: '0 10px 20px rgba(0,0,0,0.2)', zIndex: 1000, fontWeight: '500', 
-    fontSize: '14px', display: 'flex', alignItems: 'center', gap: '10px'
-  },
+
 
   mainLayout: { display: 'flex', justifyContent: 'center' },
   formCard: { 

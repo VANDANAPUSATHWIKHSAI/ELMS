@@ -1,20 +1,21 @@
 import { apiFetch } from "../utils/api";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom"; 
-import { useAuth } from "../context/AuthContext"; // <--- Import Auth
+import { useAuth } from "../context/AuthContext"; 
 import collegeLogo from "../assets/logo.png"; 
-
+import { Eye, EyeOff } from 'lucide-react';
 const Login = () => {
   const [isHovered, setIsHovered] = useState(false);
   const [credentials, setCredentials] = useState({ employeeId: '', password: '' });
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   
   const navigate = useNavigate();
   const { login } = useAuth(); // <--- Get login function
 
   const handleChange = (e) => {
-    // If it's the password field, update password, else update employeeId
-    const field = e.target.type === 'password' ? 'password' : 'employeeId';
+    // Determine the field based on input type or placeholder
+    const field = e.target.type === 'password' || e.target.type === 'text' && e.target.placeholder.includes('Password') ? 'password' : 'employeeId';
     setCredentials({ ...credentials, [field]: e.target.value });
     setError('');
   };
@@ -81,7 +82,35 @@ const Login = () => {
           </div>
           <div style={styles.inputWrapper}>
             <label style={styles.label}>Password</label>
-            <input type="password" placeholder="Enter Password" style={styles.inputField} value={credentials.password} onChange={handleChange} required />
+            <div style={{ position: 'relative', width: '100%' }}>
+              <input 
+                type={showPassword ? "text" : "password"} 
+                placeholder="Enter Password" 
+                style={styles.inputField} 
+                value={credentials.password} 
+                onChange={handleChange} 
+                required 
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: '#94a3b8',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
             <div style={styles.forgotContainer}>
               <button 
                 type="button" 

@@ -1,6 +1,7 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
+import { NotificationProvider } from "./context/NotificationContext";
 
 // Components
 import Login from "./components/login"; 
@@ -27,6 +28,8 @@ import PrincipalApprovals from './components/dashboards/PrincipalApprovals';
 import PrincipalReports from './components/dashboards/PrincipalReports';
 import PrincipalEmployees from './components/dashboards/PrincipalEmployees';
 import PrincipalAnalytics from './components/dashboards/PrincipalAnalytics';
+import PrincipalRejectedReview from './components/dashboards/PrincipalRejectedReview';
+import HodRejectedReview from './components/dashboards/HodRejectedReview';
 
 // Admin Pages
 import AdminDashboard from './components/admin/AdminDashboard';
@@ -49,6 +52,7 @@ import ResetPassword from './components/ResetPassword';
 function App() {
   return (
     <AuthProvider>
+      <NotificationProvider>
       <Router>
         <Routes>
           {/* Public Route (NO SIDEBAR) */}
@@ -100,6 +104,14 @@ function App() {
                 </ProtectedRoute>
               } 
             />
+            <Route 
+              path="/hod/rejected-review" 
+              element={
+                <ProtectedRoute role="HoD">
+                  <HodRejectedReview />
+                </ProtectedRoute>
+              } 
+            />
 
             {/* Principal Specific Routes */}
             <Route 
@@ -115,6 +127,14 @@ function App() {
               element={
                 <ProtectedRoute role="Principal">
                   <PrincipalApprovals />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/principal/rejected-review" 
+              element={
+                <ProtectedRoute role="Principal">
+                  <PrincipalRejectedReview />
                 </ProtectedRoute>
               } 
             />
@@ -230,6 +250,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Router>
+      </NotificationProvider>
     </AuthProvider>
   );
 }

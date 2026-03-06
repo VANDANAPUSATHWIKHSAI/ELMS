@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../../utils/api';
 import { Plus, Edit2, Trash2, Settings } from 'lucide-react';
+import { useNotification } from '../../context/NotificationContext';
 
 const AdminLeaveTypes = () => {
+  const { notify, showConfirm } = useNotification();
   const [leaveTypes, setLeaveTypes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState({ loading: false, success: null, error: null });
+  const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({ code: '', name: '', defaultDays: 0 });
   const [editId, setEditId] = useState(null);
@@ -28,7 +30,7 @@ const AdminLeaveTypes = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setStatus({ loading: true, success: null, error: null });
+    setSaving(true);
 
     try {
       const url = editId ? `http://localhost:5000/api/admin/leave-types/${editId}` : 'http://localhost:5000/api/admin/leave-types';
@@ -41,15 +43,17 @@ const AdminLeaveTypes = () => {
       const data = await res.json();
       
       if (res.ok) {
-        setStatus({ loading: false, success: editId ? "Leave type updated" : "Leave type created", error: null });
+        notify(editId ? "Leave type updated" : "Leave type created", "success");
         fetchTypes();
         setFormData({ code: '', name: '', defaultDays: 0 });
         setEditId(null);
       } else {
-        setStatus({ loading: false, success: null, error: data.message || "Action failed" });
+        notify(data.message || "Action failed", "error");
       }
     } catch (err) {
-      setStatus({ loading: false, success: null, error: "Server error" });
+      notify("Server error", "error");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -59,7 +63,12 @@ const AdminLeaveTypes = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this leave type? This may break existing history!")) return;
+    const confirmed = await showConfirm("Are you sure you want to delete this leave type? This may break existing history!", {
+        title: "Confirm Deletion",
+        confirmLabel: "Delete",
+        danger: true
+    });
+    if (!confirmed) return;
     try {
       const res = await apiFetch(`http://localhost:5000/api/admin/leave-types/${id}`, { method: 'DELETE' });
       if (res.ok) fetchTypes();
@@ -84,8 +93,7 @@ const AdminLeaveTypes = () => {
             <h3 style={styles.cardTitle}>{editId ? 'Edit Leave Type' : 'Add New Leave Type'}</h3>
           </div>
           
-          {status.success && <div style={styles.successMsg}>{status.success}</div>}
-          {status.error && <div style={styles.errorMsg}>{status.error}</div>}
+
 
           <form onSubmit={handleSubmit} style={styles.form}>
             <div style={styles.formGroup}>
@@ -124,8 +132,8 @@ const AdminLeaveTypes = () => {
             </div>
 
             <div style={{display: 'flex', gap: '10px'}}>
-              <button type="submit" disabled={status.loading} style={{...styles.submitBtn, flex: 1}}>
-                {status.loading ? 'Saving...' : (editId ? 'Update' : 'Create')}
+              <button type="submit" disabled={saving} style={{...styles.submitBtn, flex: 1}}>
+                {saving ? 'Saving...' : (editId ? 'Update' : 'Create')}
               </button>
               {editId && (
                 <button type="button" onClick={() => { setEditId(null); setFormData({code:'', name:'', defaultDays:0}); }} style={{...styles.cancelBtn}}>

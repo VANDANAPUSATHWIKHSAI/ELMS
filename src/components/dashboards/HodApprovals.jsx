@@ -1,10 +1,12 @@
 import { apiFetch } from "../../utils/api";
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useNotification } from '../../context/NotificationContext';
 import { FileCheck, CheckCircle, XCircle, Search, FileText } from 'lucide-react';
 
 const HodApprovals = () => {
   const { user } = useAuth();
+  const { notify } = useNotification();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -13,12 +15,7 @@ const HodApprovals = () => {
   // Modal & Toast States
   const [modal, setModal] = useState({ isOpen: false, leaveId: null, action: '' });
   const [comment, setComment] = useState('');
-  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
 
-  const showToast = (message, type = 'success') => {
-    setToast({ visible: true, message, type });
-    setTimeout(() => setToast({ visible: false, message: '', type: 'success' }), 3000);
-  };
 
   const fetchRequests = async () => {
     setLoading(true);
@@ -52,14 +49,14 @@ const HodApprovals = () => {
       });
       
       if (res.ok) {
-        showToast(`Leave successfully ${modal.action.toLowerCase()}!`, "success");
+        notify(`Leave successfully ${modal.action.toLowerCase()}!`, "success");
         fetchRequests(); 
         closeModal();
       } else {
-        showToast("Failed to process request.", "error");
+        notify("Failed to process request.", "error");
       }
     } catch (err) { 
-      showToast("Network error occurred.", "error");
+      notify("Network error occurred.", "error");
     }
   };
 
@@ -67,13 +64,7 @@ const HodApprovals = () => {
 
   return (
     <div style={styles.container}>
-      {/* TOAST NOTIFICATION */}
-      {toast.visible && (
-        <div style={{...styles.toast, backgroundColor: toast.type === 'success' ? '#1e293b' : '#dc2626'}}>
-          {toast.type === 'success' ? <CheckCircle size={18} color="#4ade80" /> : <XCircle size={18} color="white" />}
-          {toast.message}
-        </div>
-      )}
+
 
       {/* CUSTOM MODAL OVERLAY */}
       {modal.isOpen && (
@@ -154,7 +145,9 @@ const HodApprovals = () => {
                   <div>
                     <h4 style={styles.empName}>{req.employeeName} <span style={styles.empId}>(ID: {req.employeeId})</span></h4>
                     <div style={styles.leaveMeta}>
-                      <span style={styles.badge}>{req.leaveType}</span>
+                      <span style={styles.badge}>
+                        {req.leaveType} {req.isHalfDay ? `(${req.halfDayType})` : ''}
+                      </span>
                       <span>{formatDate(req.startDate)} — {formatDate(req.endDate)}</span>
                     </div>
                     <p style={styles.reasonText}><strong>Reason:</strong> {req.reason}</p>
@@ -191,7 +184,7 @@ const HodApprovals = () => {
 };
 
 const styles = {
-  toast: { position: 'fixed', bottom: '30px', left: '50%', transform: 'translateX(-50%)', color: 'white', padding: '12px 24px', borderRadius: '50px', boxShadow: '0 10px 20px rgba(0,0,0,0.2)', zIndex: 1000, fontWeight: '500', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '10px', animation: 'fadeInUp 0.3s ease-out' },
+
   modalOverlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(2px)' },
   modalBox: { background: 'white', padding: '30px', borderRadius: '16px', width: '90%', maxWidth: '400px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', animation: 'fadeIn 0.2s ease-out' },
   modalTitle: { margin: '0 0 10px 0', fontSize: '20px', color: '#1e293b' },

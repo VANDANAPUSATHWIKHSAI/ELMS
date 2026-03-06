@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { apiFetch } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
-import { Settings, Lock, CheckCircle, XCircle } from 'lucide-react';
+import { Settings, Lock, CheckCircle, XCircle, Eye, EyeOff } from 'lucide-react';
 
 const AccountSettings = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -83,29 +86,56 @@ const AccountSettings = () => {
           <form onSubmit={submitPasswordChange} style={styles.form}>
             <div style={styles.inputGroup}>
                <label style={styles.label}>Current Password</label>
-               <input 
-                 type="password" name="currentPassword" required 
-                 value={passwordData.currentPassword} onChange={handlePasswordChange} 
-                 style={styles.input} placeholder="Enter current password" 
-               />
+               <div style={{ position: 'relative' }}>
+                 <input 
+                   type={showCurrentPassword ? "text" : "password"} name="currentPassword" required 
+                   value={passwordData.currentPassword} onChange={handlePasswordChange} 
+                   style={styles.input} placeholder="Enter current password" 
+                 />
+                 <button
+                   type="button"
+                   onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                   style={styles.eyeBtn}
+                 >
+                   {showCurrentPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                 </button>
+               </div>
             </div>
             
             <div style={styles.inputGroup}>
                <label style={styles.label}>New Password</label>
-               <input 
-                 type="password" name="newPassword" required 
-                 value={passwordData.newPassword} onChange={handlePasswordChange} 
-                 style={styles.input} placeholder="Enter new password" 
-               />
+               <div style={{ position: 'relative' }}>
+                 <input 
+                   type={showNewPassword ? "text" : "password"} name="newPassword" required 
+                   value={passwordData.newPassword} onChange={handlePasswordChange} 
+                   style={styles.input} placeholder="Enter new password" 
+                 />
+                 <button
+                   type="button"
+                   onClick={() => setShowNewPassword(!showNewPassword)}
+                   style={styles.eyeBtn}
+                 >
+                   {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                 </button>
+               </div>
             </div>
             
             <div style={styles.inputGroup}>
                <label style={styles.label}>Confirm New Password</label>
-               <input 
-                 type="password" name="confirmPassword" required 
-                 value={passwordData.confirmPassword} onChange={handlePasswordChange} 
-                 style={styles.input} placeholder="Confirm new password" 
-               />
+               <div style={{ position: 'relative' }}>
+                 <input 
+                   type={showConfirmPassword ? "text" : "password"} name="confirmPassword" required 
+                   value={passwordData.confirmPassword} onChange={handlePasswordChange} 
+                   style={styles.input} placeholder="Confirm new password" 
+                 />
+                 <button
+                   type="button"
+                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                   style={styles.eyeBtn}
+                 >
+                   {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                 </button>
+               </div>
             </div>
 
             <button type="submit" disabled={loading} style={styles.btnSave}>
@@ -152,7 +182,7 @@ const styles = {
   input: { padding: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '14px', width: '100%', boxSizing: 'border-box' },
   
   btnSave: { padding: '12px', borderRadius: '6px', border: 'none', background: '#F17F08', color: 'white', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', marginTop: '10px' },
-
+  eyeBtn: { position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' },
   toast: { position: 'fixed', bottom: '30px', left: '50%', transform: 'translateX(-50%)', color: 'white', padding: '12px 24px', borderRadius: '50px', boxShadow: '0 10px 20px rgba(0,0,0,0.2)', zIndex: 2000, fontWeight: '500', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '10px', animation: 'fadeInUp 0.3s ease-out' }
 };
 

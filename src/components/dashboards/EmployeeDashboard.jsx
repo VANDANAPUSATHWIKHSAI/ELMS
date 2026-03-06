@@ -12,6 +12,7 @@ const EmployeeDashboard = () => {
   const [quarterlyStats, setQuarterlyStats] = useState({ quarters: [], summary: {} });
   const [lateMarks, setLateMarks] = useState([]);
   const [holidays, setHolidays] = useState([]);
+  const [leaves, setLeaves] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null); // Clicked date on calendar
   const kmitOrange = "#F17F08";
 
@@ -48,6 +49,12 @@ const EmployeeDashboard = () => {
         const resHolidays = await apiFetch(`http://localhost:5000/api/holidays`);
         if (resHolidays.ok) {
           setHolidays(await resHolidays.json());
+        }
+
+        // Fetch personal leaves
+        const resLeaves = await apiFetch(`http://localhost:5000/api/leave/history/${user.employeeId}`);
+        if (resLeaves.ok) {
+          setLeaves(await resLeaves.json());
         }
       } catch (err) {
         console.error("Failed to fetch dashboard data", err);
@@ -175,11 +182,68 @@ const EmployeeDashboard = () => {
                 
                 const isSunday = cellDate.getDay() === 0;
                 
-                // Check if this date is a holiday
-                const holidayInfo = holidays.find(h => {
-                  const hDate = new Date(h.date);
-                  return hDate.getDate() === dayNum && hDate.getMonth() === month && hDate.getFullYear() === year;
-                });
+                // Helper to check holiday type
+                const getHolidayType = (date) => {
+                  const d = new Date(date);
+                  d.setHours(0,0,0,0);
+                  const h = holidays.find(h => {
+                    const hStart = new Date(h.startDate);
+                    const hEnd = new Date(h.endDate);
+                    hStart.setHours(0,0,0,0);
+                    hEnd.setHours(0,0,0,0);
+                    return d >= hStart && d <= hEnd;
+                  });
+                  if (h) return h.type;
+                  if (d.getDay() === 0) return 'Sunday';
+                  return null;
+                };
+
+                const isDeductibleHoliday = (date) => {
+                  const type = getHolidayType(date);
+                  return type && type !== 'Summer Holidays';
+                };
+
+                const hasApprovedLeave = (date) => {
+                  const d = new Date(date);
+                  d.setHours(0,0,0,0);
+                  return leaves.some(l => {
+                    if (!['Approved', 'Accepted', 'Auto-Approved'].includes(l.status)) return false;
+                    const sDate = new Date(l.startDate);
+                    const eDate = new Date(l.endDate);
+                    sDate.setHours(0,0,0,0);
+                    eDate.setHours(0,0,0,0);
+                    return d >= sDate && d <= eDate;
+                  });
+                };
+
+                // SANDWICH LOGIC
+                let isSandwich = false;
+                const holidayType = getHolidayType(cellDate);
+                
+                if (isDeductibleHoliday(cellDate)) {
+                  // Find start of this holiday block
+                  let blockStart = new Date(cellDate);
+                  while (isDeductibleHoliday(new Date(blockStart).setDate(blockStart.getDate() - 1))) {
+                    blockStart.setDate(blockStart.getDate() - 1);
+                  }
+                  const dayBeforeBlock = new Date(blockStart);
+                  dayBeforeBlock.setDate(dayBeforeBlock.getDate() - 1);
+
+                  // Find end of this holiday block
+                  let blockEnd = new Date(cellDate);
+                  while (isDeductibleHoliday(new Date(blockEnd).setDate(blockEnd.getDate() + 1))) {
+                    blockEnd.setDate(blockEnd.getDate() + 1);
+                  }
+                  const dayAfterBlock = new Date(blockEnd);
+                  dayAfterBlock.setDate(dayAfterBlock.getDate() + 1);
+
+                  // It's a sandwich if both sides have approved leaves
+                  if (hasApprovedLeave(dayBeforeBlock) && hasApprovedLeave(dayAfterBlock)) {
+                    isSandwich = true;
+                  }
+                }
+
+                const isLeaveDay = hasApprovedLeave(cellDate);
 
                 let bgColor = 'transparent';
                 let textColor = '#475569';
@@ -188,14 +252,40 @@ const EmployeeDashboard = () => {
                 const dateKey = cellDate.toISOString();
                 const isSelected = selectedDate === dateKey;
 
+                // Priority Logic: Today > Holiday > Leave
                 if (isSelected || isToday) {
-                  bgColor = '#FFF7ED'; // Very light orange
-                  textColor = '#C2410C'; // Darker orange text
-                  borderColor = '#FDBA74'; // Orange border
-                } else if (isSunday || holidayInfo) {
-                  bgColor = '#F0FDF4'; // Light green background for Sundays/Holidays
-                  textColor = '#16A34A'; // Green text
+                  bgColor = '#FFF7ED'; 
+                  textColor = '#C2410C'; 
+                  borderColor = '#FDBA74'; 
+                } else if (isSandwich) {
+                  bgColor = '#FEF2F2'; // Red (Sandwiched)
+                  textColor = '#DC2626'; 
+                } else if (holidayType) {
+                  bgColor = '#F0FDF4'; // Green (Refunded/Standard Holiday)
+                  textColor = '#16A34A'; 
+                } else if (isLeaveDay) {
+                  bgColor = '#FEF2F2'; // Red (Standard Leave)
+                  textColor = '#DC2626'; 
                 }
+
+                const holidayInfo = holidays.find(h => {
+                  const d = new Date(cellDate);
+                  d.setHours(0,0,0,0);
+                  const hStart = new Date(h.startDate);
+                  const hEnd = new Date(h.endDate);
+                  hStart.setHours(0,0,0,0);
+                  hEnd.setHours(0,0,0,0);
+                  return d >= hStart && d <= hEnd;
+                });
+
+                const titleParts = [];
+                if (isToday) titleParts.push("Today");
+                if (holidayInfo) titleParts.push(`Holiday: ${holidayInfo.name}`);
+                else if (isSunday) titleParts.push("Sunday");
+                
+                if (isSandwich) titleParts.push("Sandwich Rule Applied (Deducted)");
+                else if (holidayType && isLeaveDay) titleParts.push("Holiday Refunded (Not Deducted)");
+                else if (isLeaveDay) titleParts.push("Approved Leave");
 
                 return (
                   <div key={dayNum} 
@@ -205,7 +295,7 @@ const EmployeeDashboard = () => {
                       color: textColor,
                       border: `1px solid ${borderColor}`,
                     }}
-                    title={holidayInfo ? holidayInfo.name : (isSunday ? 'Sunday' : '')}
+                    title={titleParts.join(' | ')}
                     onMouseDown={() => setSelectedDate(dateKey)}
                     onMouseUp={() => setTimeout(() => setSelectedDate(null), 300)}
                   >

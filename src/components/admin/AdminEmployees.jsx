@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../../utils/api';
-import { Plus, Edit2, Trash2, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, CheckCircle, XCircle, Eye, EyeOff } from 'lucide-react';
+import { useNotification } from '../../context/NotificationContext';
 
 const AdminEmployees = () => {
+  const { notify, showConfirm } = useNotification();
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [currentId, setCurrentId] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [departments, setDepartments] = useState([]);
 
   const [formData, setFormData] = useState({
     employeeId: '',
@@ -20,12 +24,7 @@ const AdminEmployees = () => {
     designation: '', mobile: '', gender: '', address: '', aadhaar: '', pan: '', aicteId: '', jntuUid: '', dob: '', doj: ''
   });
 
-  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
 
-  const showToast = (message, type = 'success') => {
-    setToast({ visible: true, message, type });
-    setTimeout(() => setToast({ visible: false, message: '', type: 'success' }), 3000);
-  };
 
   const fetchEmployees = async () => {
     try {
@@ -34,14 +33,22 @@ const AdminEmployees = () => {
       const data = await res.json();
       if (res.ok) setEmployees(data);
     } catch (err) {
-      showToast('Error loading employees', 'error');
+      notify('Error loading employees', 'error');
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchDepartments = async () => {
+    try {
+      const res = await apiFetch('http://localhost:5000/api/admin/departments');
+      if (res.ok) setDepartments(await res.json());
+    } catch (err) { console.error("Error fetching departments", err); }
+  };
+
   useEffect(() => {
     fetchEmployees();
+    fetchDepartments();
   }, []);
 
   const handleInputChange = (e) => {
@@ -59,6 +66,7 @@ const AdminEmployees = () => {
 
   const openAddModal = () => {
     resetForm();
+    setShowPassword(false);
     setShowModal(true);
   };
 
@@ -85,11 +93,49 @@ const AdminEmployees = () => {
     });
     setCurrentId(emp.employeeId);
     setEditMode(true);
+    setShowPassword(false);
     setShowModal(true);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // 1. Email Validation
+    const emailParts = formData.email.split('@');
+    if (emailParts.length !== 2) return notify("Email must contain exactly one @", "warning");
+    
+    const [localPart, domain] = emailParts;
+    if (!localPart) return notify("Email must have characters before @", "warning");
+    if (!domain) return notify("Email must have a domain after @", "warning");
+    if (formData.email.includes(" ")) return notify("Email cannot contain spaces", "warning");
+
+    // Local part allowed chars: a-z A-Z 0-9 . _ % + -
+    if (!/^[a-zA-Z0-9._%+-]+$/.test(localPart)) {
+      return notify("Invalid characters in email local part", "warning");
+    }
+
+    if (!domain.includes(".")) return notify("Domain must contain at least one dot (.)", "warning");
+    if (domain.startsWith(".") || domain.endsWith(".")) return notify("Domain cannot start or end with a dot (.)", "warning");
+
+    // Domain allowed chars: a-z A-Z 0-9 - .
+    if (!/^[a-zA-Z0-9.-]+$/.test(domain)) {
+      return notify("Invalid characters in email domain", "warning");
+    }
+
+    // 2. Mobile Validation: Exactly 10 digits, numbers only
+    if (!/^\d{10}$/.test(formData.mobile)) {
+      return notify("Mobile number must contain exactly 10 digits", "warning");
+    }
+
+    // 3. Aadhaar Validation: Exactly 12 digits, numbers only
+    if (!/^\d{12}$/.test(formData.aadhaar)) {
+      return notify("Aadhaar number must contain exactly 12 digits", "warning");
+    }
+
+    // 4. PAN Validation: Exactly 10 alphanumeric characters
+    if (!/^[a-zA-Z0-9]{10}$/.test(formData.pan)) {
+      return notify("PAN number must contain exactly 10 alphanumeric characters", "warning");
+    }
     
     // For Edit, remove empty password
     const payload = { ...formData };
@@ -110,43 +156,43 @@ const AdminEmployees = () => {
       
       const data = await res.json();
       if (res.ok) {
-        showToast(data.message, 'success');
+        notify(data.message, 'success');
         setShowModal(false);
         fetchEmployees();
       } else {
-        showToast(data.message || 'Error saving employee', 'error');
+        notify(data.message || 'Error saving employee', 'error');
       }
     } catch (err) {
-      showToast('Server connection failed', 'error');
+      notify('Server connection failed', 'error');
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this employee? This cannot be undone.')) return;
+    const confirmed = await showConfirm('Are you sure you want to delete this employee? This cannot be undone.', {
+      title: 'Confirm Deletion',
+      confirmLabel: 'Delete',
+      danger: true
+    });
+    if (!confirmed) return;
     
     try {
       const res = await apiFetch(`http://localhost:5000/api/admin/employees/${id}`, { method: 'DELETE' });
       const data = await res.json();
       
       if (res.ok) {
-        showToast(data.message, 'success');
+        notify(data.message, 'success');
         fetchEmployees();
       } else {
-        showToast(data.message || 'Failed to delete', 'error');
+        notify(data.message || 'Failed to delete', 'error');
       }
     } catch (err) {
-      showToast('Server error during deletion', 'error');
+      notify('Server error during deletion', 'error');
     }
   };
 
   return (
     <div style={styles.container}>
-      {toast.visible && (
-        <div style={{...styles.toast, backgroundColor: toast.type === 'success' ? '#1e293b' : '#dc2626'}}>
-          {toast.type === 'success' ? <CheckCircle size={18} color="#4ade80" /> : <XCircle size={18} color="white" />}
-          {toast.message}
-        </div>
-      )}
+
 
       <div style={styles.header}>
         <h2 style={styles.title}>Employee Management</h2>
@@ -222,7 +268,35 @@ const AdminEmployees = () => {
                 {/* Password field is now always shown for Admin. Leaves empty for no change */}
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>{editMode ? 'Reset Password (optional)' : 'Temporary Password *'}</label>
-                  <input required={!editMode} name="password" type="password" value={formData.password} onChange={handleInputChange} autoComplete="new-password" style={styles.input} />
+                  <div style={{ position: 'relative' }}>
+                    <input 
+                      required={!editMode} 
+                      name="password" 
+                      type={showPassword ? "text" : "password"} 
+                      value={formData.password} 
+                      onChange={handleInputChange} 
+                      autoComplete="new-password" 
+                      style={{ ...styles.input, width: '100%', boxSizing: 'border-box' }} 
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      style={{
+                        position: 'absolute',
+                        right: '10px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: '#64748b',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
 
                 <div style={styles.inputGroup}>
@@ -231,23 +305,28 @@ const AdminEmployees = () => {
                 </div>
 
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>Last Name</label>
-                  <input name="lastName" value={formData.lastName} onChange={handleInputChange} style={styles.input} />
+                  <label style={styles.label}>Last Name *</label>
+                  <input required name="lastName" value={formData.lastName} onChange={handleInputChange} style={styles.input} />
                 </div>
 
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>Email</label>
-                  <input type="email" name="email" value={formData.email} onChange={handleInputChange} style={styles.input} />
+                  <label style={styles.label}>Email *</label>
+                  <input required type="email" name="email" value={formData.email} onChange={handleInputChange} style={styles.input} />
                 </div>
 
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>Department</label>
-                  <input name="department" value={formData.department} onChange={handleInputChange} style={styles.input} placeholder="e.g. CSE" />
+                  <label style={styles.label}>Department *</label>
+                  <select required name="department" value={formData.department} onChange={handleInputChange} style={styles.input}>
+                    <option value="">Select Department</option>
+                    {departments.map(dept => (
+                      <option key={dept._id} value={dept.name}>{dept.name}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>Role</label>
-                  <select name="role" value={formData.role} onChange={handleInputChange} style={styles.input}>
+                  <label style={styles.label}>Role *</label>
+                  <select required name="role" value={formData.role} onChange={handleInputChange} style={styles.input}>
                     <option value="Employee">Employee (Teacher)</option>
                     <option value="HoD">Head of Department</option>
                     <option value="Principal">Dean/Principal</option>
@@ -256,18 +335,18 @@ const AdminEmployees = () => {
                 </div>
                 
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>Designation</label>
-                  <input name="designation" value={formData.designation} onChange={handleInputChange} style={styles.input} />
+                  <label style={styles.label}>Designation *</label>
+                  <input required name="designation" value={formData.designation} onChange={handleInputChange} style={styles.input} />
                 </div>
                 
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>Mobile</label>
-                  <input name="mobile" value={formData.mobile} onChange={handleInputChange} style={styles.input} />
+                  <label style={styles.label}>Mobile *</label>
+                  <input required name="mobile" value={formData.mobile} onChange={handleInputChange} style={styles.input} />
                 </div>
 
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>Gender</label>
-                  <select name="gender" value={formData.gender} onChange={handleInputChange} style={styles.input}>
+                  <label style={styles.label}>Gender *</label>
+                  <select required name="gender" value={formData.gender} onChange={handleInputChange} style={styles.input}>
                     <option value="">Select Gender</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
@@ -276,23 +355,23 @@ const AdminEmployees = () => {
                 </div>
 
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>Date of Birth</label>
-                  <input type="date" name="dob" value={formData.dob} onChange={handleInputChange} style={styles.input} />
+                  <label style={styles.label}>Date of Birth *</label>
+                  <input required type="date" name="dob" value={formData.dob} onChange={handleInputChange} style={styles.input} />
                 </div>
 
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>Date of Joining</label>
-                  <input type="date" name="doj" value={formData.doj} onChange={handleInputChange} style={styles.input} />
+                  <label style={styles.label}>Date of Joining *</label>
+                  <input required type="date" name="doj" value={formData.doj} onChange={handleInputChange} style={styles.input} />
                 </div>
 
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>Aadhaar Number</label>
-                  <input name="aadhaar" value={formData.aadhaar} onChange={handleInputChange} style={styles.input} />
+                  <label style={styles.label}>Aadhaar Number *</label>
+                  <input required name="aadhaar" value={formData.aadhaar} onChange={handleInputChange} style={styles.input} />
                 </div>
 
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>PAN Number</label>
-                  <input name="pan" value={formData.pan} onChange={handleInputChange} style={styles.input} />
+                  <label style={styles.label}>PAN Number *</label>
+                  <input required name="pan" value={formData.pan} onChange={handleInputChange} style={styles.input} />
                 </div>
 
                 <div style={styles.inputGroup}>
@@ -306,8 +385,8 @@ const AdminEmployees = () => {
                 </div>
 
                 <div style={{ ...styles.inputGroup, gridColumn: 'span 2' }}>
-                  <label style={styles.label}>Address</label>
-                  <input name="address" value={formData.address} onChange={handleInputChange} style={styles.input} />
+                  <label style={styles.label}>Address *</label>
+                  <input required name="address" value={formData.address} onChange={handleInputChange} style={styles.input} />
                 </div>
               </div>
 
@@ -354,7 +433,7 @@ const styles = {
   btnCancel: { padding: '10px 16px', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', cursor: 'pointer', fontWeight: '600', color: '#64748b' },
   btnSave: { padding: '10px 16px', borderRadius: '6px', border: 'none', background: '#10b981', color: 'white', cursor: 'pointer', fontWeight: '600' },
 
-  toast: { position: 'fixed', bottom: '30px', left: '50%', transform: 'translateX(-50%)', color: 'white', padding: '12px 24px', borderRadius: '50px', boxShadow: '0 10px 20px rgba(0,0,0,0.2)', zIndex: 2000, fontWeight: '500', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '10px', animation: 'fadeInUp 0.3s ease-out' }
+
 };
 
 export default AdminEmployees;

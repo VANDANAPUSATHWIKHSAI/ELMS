@@ -202,7 +202,18 @@ const AdminReports = () => {
                          {leave.reason}
                        </span>
                     </td>
-                    <td style={styles.td}><StatusBadge status={leave.status} actionBy={leave.hodApproval?.actionBy} /></td>
+                    <td style={styles.td}>
+                      <StatusBadge 
+                        status={leave.status} 
+                        actionBy={
+                          (leave.status === 'Approved' || leave.status === 'Auto-Approved')
+                            ? (leave.principalApproval?.status === 'Approved' ? leave.principalApproval.actionBy : leave.hodApproval?.actionBy)
+                            : (leave.status === 'Rejected'
+                                ? (leave.principalApproval?.status === 'Rejected' ? leave.principalApproval.actionBy : leave.hodApproval?.actionBy)
+                                : null)
+                        } 
+                      />
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -230,12 +241,12 @@ const styles = {
   tab: { padding: '8px 16px', border: '1px solid #e2e8f0', borderRadius: '20px', background: 'white', color: '#64748b', fontWeight: '600', fontSize: '13px', cursor: 'pointer', transition: 'all 0.2s' },
   activeTab: { padding: '8px 16px', border: '1px solid #F17F08', borderRadius: '20px', background: '#fff7ed', color: '#ea580c', fontWeight: 'bold', fontSize: '13px', cursor: 'pointer', transition: 'all 0.2s' },
   
-  formLayer: { display: 'flex', itemsCenter: 'center', gap: '15px' },
-  filterGroup: { display: 'flex', flexDirection: 'column', gap: '6px' },
+  formLayer: { display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' },
+  filterGroup: { display: 'flex', flexDirection: 'column', gap: '6px', flex: '1 1 250px', maxWidth: '100%' },
   label: { fontSize: '12px', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' },
-  input: { padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', outline: 'none', background: '#f8fafc', width: '250px' },
-  searchBtn: { padding: '10px 20px', background: '#1e293b', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', height: '40px', marginTop: 'auto' },
-  dropdownList: { position: 'absolute', top: '100%', left: 0, width: '250px', background: 'white', border: '1px solid #cbd5e1', borderRadius: '8px', marginTop: '4px', maxHeight: '200px', overflowY: 'auto', zIndex: 100, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' },
+  input: { padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', outline: 'none', background: '#f8fafc', width: '100%' },
+  searchBtn: { padding: '10px 20px', background: '#1e293b', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', height: '40px', marginTop: 'auto', whiteSpace: 'nowrap' },
+  dropdownList: { position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '1px solid #cbd5e1', borderRadius: '8px', marginTop: '4px', maxHeight: '200px', overflowY: 'auto', zIndex: 100, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' },
   dropdownItem: { padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', fontSize: '13px', color: '#334155', background: '#fff' },
 
   card: { background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', overflow: 'hidden' },

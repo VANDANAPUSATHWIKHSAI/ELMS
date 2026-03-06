@@ -1,15 +1,22 @@
 import { apiFetch } from "../../utils/api";
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useNotification } from '../../context/NotificationContext';
 import { Shuffle, ArrowRight, CheckCircle, XCircle, Search, User } from 'lucide-react';
 
 const Adjustments = () => {
   const { user } = useAuth();
+  const { notify } = useNotification();
   const [activeTab, setActiveTab] = useState('incoming'); 
   
+  if (!user) {
+    return <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading User Data...</div>;
+  }
+
   // Data States
   const [incoming, setIncoming] = useState([]);
   const [outgoing, setOutgoing] = useState([]);
+  const [holidays, setHolidays] = useState([]);
   
   // SEARCH STATES
   const [searchTerm, setSearchTerm] = useState('');
@@ -25,9 +32,19 @@ const Adjustments = () => {
 
   // --- INITIAL DATA FETCH ---
   useEffect(() => {
-    fetchIncoming();
-    fetchOutgoing();
-  }, [activeTab]);
+    if (user && user.employeeId) {
+      fetchIncoming();
+      fetchOutgoing();
+      fetchHolidays();
+    }
+  }, [activeTab, user]);
+
+  const fetchHolidays = async () => {
+    try {
+      const res = await apiFetch('http://localhost:5000/api/holidays');
+      if (res.ok) setHolidays(await res.json());
+    } catch (err) { console.error("Failed to fetch holidays", err); }
+  };
 
   const fetchIncoming = async () => {
     const res = await apiFetch(`http://localhost:5000/api/adjustments/incoming/${user.employeeId}`);
@@ -58,6 +75,7 @@ const Adjustments = () => {
       const res = await apiFetch(`http://localhost:5000/api/users/search?query=${encodeURIComponent(searchTerm)}`);
       if (res.ok) {
         const data = await res.json();
+        console.log("Search results data sample:", data.length > 0 ? { id: data[0].employeeId, imgPrefix: data[0].profileImg ? data[0].profileImg.substring(0, 50) : 'MISSING' } : 'EMPTY');
         // Filter out self from results
         setSearchResults(data.filter(u => u.employeeId !== user.employeeId));
       }
@@ -78,7 +96,18 @@ const Adjustments = () => {
   // --- HANDLERS ---
   const handleSendRequest = async (e) => {
     e.preventDefault();
-    if (!selectedColleague) return alert("Please search and select a colleague.");
+    if (!selectedColleague) return notify("Please search and select a colleague.", "warning");
+
+    // Holiday Check
+    const isHoliday = holidays.some(h => {
+      const hStart = new Date(h.startDate).toISOString().split('T')[0];
+      const hEnd = new Date(h.endDate).toISOString().split('T')[0];
+      return formData.date >= hStart && formData.date <= hEnd;
+    });
+
+    if (isHoliday) {
+      return notify("You can't apply adjustments to a holiday", "warning");
+    }
 
     try {
       const res = await apiFetch('http://localhost:5000/api/adjustments/create', {
@@ -91,13 +120,13 @@ const Adjustments = () => {
         })
       });
       if (res.ok) {
-        alert("Request Sent!");
+        notify("Request Sent!", "success");
         // Reset Form
         setFormData({ date: '', period: '', classSection: '', reason: '' });
         clearSelection();
         setActiveTab('outgoing');
       }
-    } catch (err) { alert("Failed to send request"); }
+    } catch (err) { notify("Failed to send request", "error"); }
   };
 
   const handleRespond = async (requestId, status) => {
@@ -108,10 +137,10 @@ const Adjustments = () => {
         body: JSON.stringify({ requestId, status })
       });
       if (res.ok) {
-        alert(`Request ${status}`);
+        notify(`Request ${status}`, "success");
         fetchIncoming(); 
       }
-    } catch (err) { alert("Action failed"); }
+    } catch (err) { notify("Action failed", "error"); }
   };
 
   const formatDate = (d) => new Date(d).toLocaleDateString('en-GB');
@@ -125,19 +154,19 @@ const Adjustments = () => {
 
       {/* TABS */}
       <div style={styles.tabContainer}>
-        <button onClick={() => setActiveTab('incoming')} style={activeTab === 'incoming' ? styles.activeTab : styles.tab}>
+        <button onClick={() => setActiveTab('incoming')} className="adj-tab" style={activeTab === 'incoming' ? styles.activeTab : styles.tab}>
           Incoming Requests {incoming.filter(i => i.status === 'Pending').length > 0 && <span style={styles.badge}>{incoming.filter(i => i.status === 'Pending').length}</span>}
         </button>
-        <button onClick={() => setActiveTab('outgoing')} style={activeTab === 'outgoing' ? styles.activeTab : styles.tab}>My Sent Requests</button>
-        <button onClick={() => setActiveTab('new')} style={activeTab === 'new' ? styles.activeTab : styles.tab}>+ New Request</button>
+        <button onClick={() => setActiveTab('outgoing')} className="adj-tab" style={activeTab === 'outgoing' ? styles.activeTab : styles.tab}>My Sent Requests</button>
+        <button onClick={() => setActiveTab('new')} className="adj-tab" style={activeTab === 'new' ? styles.activeTab : styles.tab}>+ New Request</button>
       </div>
 
       <div style={styles.content}>
         
         {/* --- 1. NEW REQUEST FORM --- */}
         {activeTab === 'new' && (
-          <div style={styles.card}>
-            <h3 style={styles.cardTitle}>Request Adjustment</h3>
+          <div style={styles.card} className="adj-card">
+            <h3 style={styles.cardTitle}>Submit a Class Adjustment</h3>
             <form onSubmit={handleSendRequest} style={styles.form}>
               
               {/* SEARCH COLLEGUE SECTION */}
@@ -166,7 +195,22 @@ const Adjustments = () => {
                                         style={styles.resultItem}
                                         onClick={() => selectColleague(colleague)}
                                     >
-                                        <div style={styles.avatarSmall}>{colleague.firstName[0]}</div>
+                                        <div style={styles.avatarSmall}>
+                                            {colleague.profileImg && colleague.profileImg.trim() ? (
+                                                <img 
+                                                    src={colleague.profileImg.trim().toLowerCase().startsWith('data:image') ? colleague.profileImg.trim() : `http://localhost:5000/${colleague.profileImg.trim()}`} 
+                                                    alt={colleague.firstName} 
+                                                    style={styles.avatarImg} 
+                                                    onError={(e) => {
+                                                        console.error("Image load error for", colleague.employeeId);
+                                                        e.target.style.display = 'none';
+                                                        e.target.parentElement.innerText = colleague.firstName[0];
+                                                    }}
+                                                />
+                                            ) : (
+                                                colleague.firstName[0]
+                                            )}
+                                        </div>
                                         <div>
                                             <div style={styles.resultName}>{colleague.firstName} {colleague.lastName}</div>
                                             <div style={styles.resultId}>ID: {colleague.employeeId} • {colleague.department}</div>
@@ -180,7 +224,17 @@ const Adjustments = () => {
                     // SELECTED STATE
                     <div style={styles.selectedCard}>
                         <div style={{display:'flex', alignItems:'center', gap:'12px'}}>
-                            <div style={styles.avatar}>{selectedColleague.firstName[0]}</div>
+                            <div style={styles.avatarSmall}>
+                                {selectedColleague.profileImg && selectedColleague.profileImg.trim() ? (
+                                    <img 
+                                        src={selectedColleague.profileImg.trim().toLowerCase().startsWith('data:image') ? selectedColleague.profileImg.trim() : `http://localhost:5000/${selectedColleague.profileImg.trim()}`} 
+                                        alt={selectedColleague.firstName} 
+                                        style={styles.avatarImg} 
+                                    />
+                                ) : (
+                                    selectedColleague.firstName[0]
+                                )}
+                            </div>
                             <div>
                                 <div style={styles.selectedName}>{selectedColleague.firstName} {selectedColleague.lastName}</div>
                                 <div style={styles.selectedId}>ID: {selectedColleague.employeeId}</div>
@@ -203,7 +257,7 @@ const Adjustments = () => {
                   <select style={styles.input} required value={formData.period} onChange={(e) => setFormData({...formData, period: e.target.value})}>
                     <option value="">-- Select Period --</option>
                     <option>1st Hour</option><option>2nd Hour</option><option>3rd Hour</option>
-                    <option>4th Hour</option><option>Lunch</option><option>5th Hour</option><option>6th Hour</option>
+                    <option>4th Hour</option><option>5th Hour</option><option>6th Hour</option><option>7th Hour</option>
                   </select>
                 </div>
               </div>
@@ -226,9 +280,9 @@ const Adjustments = () => {
             {incoming.length === 0 ? <p style={styles.emptyText}>No incoming requests.</p> : incoming.map(req => (
               <div key={req._id} style={styles.requestCard}>
                 <div style={styles.reqHeader}>
-                  <div style={styles.avatar}>{req.requesterName[0]}</div>
+                  <div style={styles.avatar}>{req.requesterName ? req.requesterName[0] : 'U'}</div>
                   <div>
-                    <h4 style={styles.reqName}>{req.requesterName}</h4>
+                    <h4 style={styles.reqName}>{req.requesterName || 'Unknown User'}</h4>
                     <p style={styles.reqMeta}>wants to adjust <strong>{req.period}</strong> on <strong>{formatDate(req.date)}</strong></p>
                   </div>
                 </div>
@@ -237,7 +291,7 @@ const Adjustments = () => {
                 </div>
                 
                 {req.status === 'Pending' ? (
-                  <div style={styles.actionButtons}>
+                  <div className="adj-actions" style={styles.actionButtons}>
                     <button onClick={() => handleRespond(req._id, 'Accepted')} style={styles.acceptBtn}><CheckCircle size={16}/> Accept</button>
                     <button onClick={() => handleRespond(req._id, 'Rejected')} style={styles.rejectBtn}><XCircle size={16}/> Reject</button>
                   </div>
@@ -262,7 +316,7 @@ const Adjustments = () => {
                  <div style={styles.reqHeader}>
                   <div style={{...styles.avatar, background: '#64748b'}}><User size={20} color="white"/></div>
                   <div>
-                    <h4 style={styles.reqName}>To: {req.targetName}</h4>
+                    <h4 style={styles.reqName}>To: {req.targetName || 'Unknown'}</h4>
                     <p style={styles.reqMeta}>{req.period} • {formatDate(req.date)}</p>
                   </div>
                 </div>
@@ -278,6 +332,30 @@ const Adjustments = () => {
         )}
 
       </div>
+      <style>{`
+        @media (max-width: 768px) {
+          .adj-row {
+            flex-direction: column !important;
+          }
+          .adj-card {
+            padding: 15px !important;
+          }
+          .adj-tab {
+            padding: 10px !important;
+            font-size: 13px !important;
+            flex: 1;
+            text-align: center;
+          }
+          .adj-actions {
+            flex-direction: column !important;
+            width: 100% !important;
+          }
+          .adj-actions button {
+            width: 100% !important;
+            justify-content: center;
+          }
+        }
+      `}</style>
     </div>
   );
 };
@@ -308,7 +386,8 @@ const styles = {
   resultItem: { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 15px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s', ':hover': {background: '#f8fafc'} },
   resultName: { fontSize: '14px', fontWeight: '600', color: '#1e293b' },
   resultId: { fontSize: '12px', color: '#64748b' },
-  avatarSmall: { width: '32px', height: '32px', borderRadius: '50%', background: '#F17F08', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '12px' },
+  avatarSmall: { width: '36px', height: '36px', borderRadius: '50%', background: '#F17F08', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '14px', overflow: 'hidden', flexShrink: 0 },
+  avatarImg: { width: '100%', height: '100%', objectFit: 'cover' },
 
   // SELECTED USER STYLES
   selectedCard: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: '#fff7ed', borderRadius: '8px', border: '1px solid #F17F08' },
