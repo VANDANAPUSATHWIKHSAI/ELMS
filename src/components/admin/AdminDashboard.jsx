@@ -41,7 +41,7 @@ const AdminDashboard = () => {
             <div style={{...styles.iconBox, background: '#e0e7ff', color: '#4f46e5'}}>
               <Users size={24} />
             </div>
-            <h3 style={styles.cardTitle}>Total Users</h3>
+            <h3 style={styles.cardTitle}>Total Employees</h3>
           </div>
           <div style={styles.cardNumber}>{stats.totalEmployees}</div>
           <p style={styles.cardDesc}>Registered accounts in the system</p>

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../../utils/api';
 import { Clock, CheckCircle, XCircle, Search, Filter, FileText } from 'lucide-react';
+import { useNotification } from '../../context/NotificationContext';
 
 const AdminReports = () => {
+  const { notify } = useNotification();
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [employees, setEmployees] = useState([]);
@@ -40,11 +42,19 @@ const AdminReports = () => {
     if (reportType === 'approved') queryParams.append('status', 'Approved');
     if (reportType === 'pending') queryParams.append('status', 'Pending');
     if (reportType === 'employee') {
-      if (!filterEmployeeId) {
+      if (filterEmployeeId) {
+        queryParams.append('employeeId', filterEmployeeId);
+      } else if (searchTerm) {
+        queryParams.append('searchName', searchTerm);
+      } else {
         setLoading(false);
-        return; // Don't fetch if no employee selected
+        if (e) {
+          notify('Please search for an employee or select one from the list.', 'warning');
+        } else {
+          setHistory([]); // clear table data if just switching tabs
+        }
+        return;
       }
-      queryParams.append('employeeId', filterEmployeeId);
     }
 
     try {

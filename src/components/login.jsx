@@ -56,7 +56,7 @@ const Login = () => {
     form: { width: '100%', display: 'flex', flexDirection: 'column', gap: '20px' },
     inputWrapper: { display: 'flex', flexDirection: 'column', gap: '8px' },
     label: { fontSize: '14px', fontWeight: '600', color: '#0f172a' },
-    inputField: { padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '15px', backgroundColor: '#ffffff', color: '#0f172a', outline: 'none', width: '100%', boxSizing: 'border-box', transition: 'border-color 0.2s' },
+    inputField: { padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '15px', backgroundColor: '#ffffff', color: '#0f172a', outline: 'none', width: '100%', boxSizing: 'border-box', transition: 'border-color 0.2s', WebkitBoxShadow: '0 0 0 30px white inset', WebkitTextFillColor: '#0f172a' },
     forgotContainer: { display: 'flex', justifyContent: 'flex-end', marginTop: '4px' },
     forgotLink: { fontSize: '13px', color: '#F17F08', textDecoration: 'none', fontWeight: '500' },
     submitBtn: { marginTop: '10px', padding: '14px', borderRadius: '8px', border: 'none', fontSize: '16px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s ease', color: '#ffffff', width: '100%' },
@@ -74,17 +74,30 @@ const Login = () => {
           <p style={styles.subtitle}>Please log in to your account</p>
         </div>
 
-        <form style={styles.form} onSubmit={handleLogin}>
+        <form style={styles.form} onSubmit={handleLogin} autoComplete="off">
           {error && <div style={{color: 'red', textAlign:'center', fontSize: '14px'}}>{error}</div>}
           <div style={styles.inputWrapper}>
             <label style={styles.label}>Employee ID / Email</label>
-            <input type="text" placeholder="Enter Employee ID or Email" style={styles.inputField} value={credentials.employeeId} onChange={handleChange} required />
+            <input 
+              type="text" 
+              name="employeeId_kmit"
+              id="employeeId_kmit"
+              autoComplete="new-employee-id"
+              placeholder="Enter Employee ID or Email" 
+              style={styles.inputField} 
+              value={credentials.employeeId} 
+              onChange={handleChange} 
+              required 
+            />
           </div>
           <div style={styles.inputWrapper}>
             <label style={styles.label}>Password</label>
             <div style={{ position: 'relative', width: '100%' }}>
               <input 
                 type={showPassword ? "text" : "password"} 
+                name="password_kmit"
+                id="password_kmit"
+                autoComplete="new-password"
                 placeholder="Enter Password" 
                 style={styles.inputField} 
                 value={credentials.password} 

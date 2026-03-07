@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../../utils/api';
-import { Plus, Edit2, Trash2, CheckCircle, XCircle, Eye, EyeOff } from 'lucide-react';
+import { Plus, Edit2, Trash2, CheckCircle, XCircle, Eye, EyeOff, Search } from 'lucide-react';
 import { useNotification } from '../../context/NotificationContext';
 
 const AdminEmployees = () => {
@@ -11,7 +11,9 @@ const AdminEmployees = () => {
   const [editMode, setEditMode] = useState(false);
   const [currentId, setCurrentId] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [departments, setDepartments] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [formData, setFormData] = useState({
     employeeId: '',
@@ -20,6 +22,7 @@ const AdminEmployees = () => {
     email: '',
     department: '',
     role: 'Employee',
+    teachingYear: '',
     password: 'password123',
     designation: '', mobile: '', gender: '', address: '', aadhaar: '', pan: '', aicteId: '', jntuUid: '', dob: '', doj: ''
   });
@@ -46,18 +49,42 @@ const AdminEmployees = () => {
     } catch (err) { console.error("Error fetching departments", err); }
   };
 
+  const filteredEmployees = employees.filter(emp => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return true;
+    
+    const fullName = `${emp.firstName || ''} ${emp.lastName || ''}`.toLowerCase();
+    
+    return (
+      emp.employeeId?.toLowerCase().includes(query) ||
+      fullName.includes(query) ||
+      emp.department?.toLowerCase().includes(query) ||
+      emp.email?.toLowerCase().includes(query)
+    );
+  });
+
   useEffect(() => {
     fetchEmployees();
     fetchDepartments();
   }, []);
 
   const handleInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    let { name, value } = e.target;
+    
+    if (name === 'mobile') {
+      value = value.replace(/\D/g, '').slice(0, 10);
+    } else if (name === 'aadhaar') {
+      value = value.replace(/\D/g, '').slice(0, 12);
+    } else if (name === 'pan') {
+      value = value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 10).toUpperCase();
+    }
+    
+    setFormData({ ...formData, [name]: value });
   };
 
   const resetForm = () => {
     setFormData({
-      employeeId: '', firstName: '', lastName: '', email: '', department: '', role: 'Employee', password: 'password123',
+      employeeId: '', firstName: '', lastName: '', email: '', department: '', role: 'Employee', teachingYear: '', password: 'password123',
       designation: '', mobile: '', gender: '', address: '', aadhaar: '', pan: '', aicteId: '', jntuUid: '', dob: '', doj: ''
     });
     setEditMode(false);
@@ -79,6 +106,7 @@ const AdminEmployees = () => {
       email: emp.email || '',
       department: emp.department || '',
       role: emp.role || 'Employee',
+      teachingYear: emp.teachingYear || '',
       password: '', // Keep empty unless changing
       designation: emp.designation || '',
       mobile: emp.mobile || '',
@@ -99,6 +127,7 @@ const AdminEmployees = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
 
     // 1. Email Validation
     const emailParts = formData.email.split('@');
@@ -143,6 +172,7 @@ const AdminEmployees = () => {
       delete payload.password;
     }
 
+    setIsSubmitting(true);
     try {
       const url = editMode 
         ? `http://localhost:5000/api/admin/employees/${currentId}`
@@ -164,6 +194,8 @@ const AdminEmployees = () => {
       }
     } catch (err) {
       notify('Server connection failed', 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -196,9 +228,21 @@ const AdminEmployees = () => {
 
       <div style={styles.header}>
         <h2 style={styles.title}>Employee Management</h2>
-        <button onClick={openAddModal} style={styles.addButton}>
-          <Plus size={16} /> Add Employee
-        </button>
+        <div style={styles.headerActions}>
+           <div style={styles.searchWrapper}>
+              <Search size={18} style={styles.searchIcon} />
+              <input 
+                type="text" 
+                placeholder="Search by name, ID, dept..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={styles.searchInput}
+              />
+           </div>
+           <button onClick={openAddModal} style={styles.addButton}>
+             <Plus size={16} /> Add Employee
+           </button>
+        </div>
       </div>
 
       <div style={styles.card}>
@@ -211,24 +255,24 @@ const AdminEmployees = () => {
                 <tr style={styles.trHeading}>
                   <th style={styles.th}>ID</th>
                   <th style={styles.th}>Name</th>
-                  <th style={styles.th}>Role</th>
+                  <th style={styles.th}>Year</th>
                   <th style={styles.th}>Dept</th>
                   <th style={styles.th}>Email</th>
                   <th style={styles.th}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {employees.map(emp => (
+                {filteredEmployees.map(emp => (
                   <tr key={emp._id} style={styles.tr}>
                     <td style={styles.td}><strong>{emp.employeeId}</strong></td>
                     <td style={styles.td}>{emp.firstName} {emp.lastName}</td>
                     <td style={styles.td}>
                       <span style={{
                         padding: '4px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold',
-                        background: emp.role === 'Admin' ? '#fee2e2' : emp.role === 'HoD' ? '#fffbeb' : '#f0fdf4',
-                        color: emp.role === 'Admin' ? '#ef4444' : emp.role === 'HoD' ? '#f59e0b' : '#10b981'
+                        background: '#f0fdf4',
+                        color: '#10b981'
                       }}>
-                        {emp.role}
+                        {emp.teachingYear || 'N/A'}
                       </span>
                     </td>
                     <td style={styles.td}>{emp.department || '-'}</td>
@@ -243,8 +287,10 @@ const AdminEmployees = () => {
                 ))}
               </tbody>
             </table>
-            {employees.length === 0 && (
-              <p style={{padding: '20px', textAlign: 'center', color: '#94a3b8'}}>No employees found.</p>
+            {filteredEmployees.length === 0 && (
+              <p style={{padding: '20px', textAlign: 'center', color: '#94a3b8'}}>
+                {searchQuery ? `No employees matching "${searchQuery}"` : 'No employees found.'}
+              </p>
             )}
           </div>
         )}
@@ -325,12 +371,13 @@ const AdminEmployees = () => {
                 </div>
 
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>Role *</label>
-                  <select required name="role" value={formData.role} onChange={handleInputChange} style={styles.input}>
-                    <option value="Employee">Employee (Teacher)</option>
-                    <option value="HoD">Head of Department</option>
-                    <option value="Principal">Dean/Principal</option>
-                    <option value="Admin">Admin</option>
+                  <label style={styles.label}>Teaching Year *</label>
+                  <select required name="teachingYear" value={formData.teachingYear} onChange={handleInputChange} style={styles.input}>
+                    <option value="">Select Year</option>
+                    <option value="1st yr">1st yr</option>
+                    <option value="2nd yr">2nd yr</option>
+                    <option value="3rd yr">3rd yr</option>
+                    <option value="4th yr">4th yr</option>
                   </select>
                 </div>
                 
@@ -392,7 +439,9 @@ const AdminEmployees = () => {
 
               <div style={styles.modalFooter}>
                 <button type="button" onClick={() => setShowModal(false)} style={styles.btnCancel}>Cancel</button>
-                <button type="submit" style={styles.btnSave}>{editMode ? 'Save Changes' : 'Create Account'}</button>
+                <button type="submit" disabled={isSubmitting} style={{ ...styles.btnSave, opacity: isSubmitting ? 0.7 : 1 }}>
+                  {isSubmitting ? 'Saving...' : editMode ? 'Save Changes' : 'Create Account'}
+                </button>
               </div>
             </form>
           </div>
@@ -407,6 +456,11 @@ const styles = {
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' },
   title: { fontSize: '24px', color: '#1e293b', margin: 0, fontWeight: '700' },
   addButton: { display: 'flex', alignItems: 'center', gap: '8px', background: '#F17F08', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' },
+  
+  headerActions: { display: 'flex', alignItems: 'center', gap: '15px' },
+  searchWrapper: { position: 'relative', width: '280px' },
+  searchIcon: { position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' },
+  searchInput: { width: '100%', padding: '10px 15px 10px 40px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', fontSize: '14px', transition: 'border-color 0.2s', color: '#1e293b' },
   
   card: { background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', overflow: 'hidden' },
   tableWrapper: { overflowX: 'auto' },

@@ -29,7 +29,7 @@ import PrincipalReports from './components/dashboards/PrincipalReports';
 import PrincipalEmployees from './components/dashboards/PrincipalEmployees';
 import PrincipalAnalytics from './components/dashboards/PrincipalAnalytics';
 import PrincipalRejectedReview from './components/dashboards/PrincipalRejectedReview';
-import HodRejectedReview from './components/dashboards/HodRejectedReview';
+
 
 // Admin Pages
 import AdminDashboard from './components/admin/AdminDashboard';
@@ -48,6 +48,7 @@ import MessagesView from './pages/Admin/MessagesView';
 import ForgotPassword from './components/ForgotPassword';
 import VerifyOTP from './components/VerifyOTP';
 import ResetPassword from './components/ResetPassword';
+import EmployeeInbox from './components/EmployeeInbox';
 
 function App() {
   return (
@@ -75,6 +76,14 @@ function App() {
             <Route path="/adjustments" element={<Adjustments />} />
             <Route path="/settings" element={<AccountSettings />} />
             <Route path="/contact" element={<ContactForm />} />
+            <Route 
+              path="/inbox" 
+              element={
+                <ProtectedRoute>
+                  <EmployeeInbox />
+                </ProtectedRoute>
+              } 
+            />
             
             {/* HoD Specific Routes */}
             <Route 
@@ -104,29 +113,23 @@ function App() {
                 </ProtectedRoute>
               } 
             />
+
+
             <Route 
-              path="/hod/rejected-review" 
+              path="/hod/messages" 
               element={
                 <ProtectedRoute role="HoD">
-                  <HodRejectedReview />
+                  <MessagesView />
                 </ProtectedRoute>
               } 
             />
-
+            
             {/* Principal Specific Routes */}
             <Route 
               path="/principal-dashboard" 
               element={
                 <ProtectedRoute role="Principal">
                   <PrincipalDashboard />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/principal/approvals" 
-              element={
-                <ProtectedRoute role="Principal">
-                  <PrincipalApprovals />
                 </ProtectedRoute>
               } 
             />

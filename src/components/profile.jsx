@@ -204,6 +204,8 @@ const Profile = () => {
             <ProfileField label="Department" name="department" value={formData.department} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
             
             <ProfileField label="Designation" name="designation" value={formData.designation} isReadOnly={false} isEditing={isEditing} onChange={handleInputChange} />
+            <ProfileField label="Teaching Year" name="teachingYear" value={formData.teachingYear} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
+            
             <ProfileField label="Gender" name="gender" value={formData.gender} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
             
             <ProfileField label="Aadhaar" name="aadhaar" value={formData.aadhaar} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />

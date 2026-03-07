@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { 
   Home, User, CalendarOff, Search, Shuffle, LogOut, Menu, X, 
   FileCheck, ClipboardList, Users, Settings, Globe, MessageSquare, Mail,
-  Clock, BarChart2
+  Clock, BarChart2, Inbox
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, isMobile, onToggle, onClose }) => {
@@ -26,6 +26,7 @@ const Sidebar = ({ isOpen, isMobile, onToggle, onClose }) => {
     { id: 'history', label: 'History', icon: <Clock size={22} />, path: '/leave-history' },
     { id: 'adjustments', label: 'Adjustments', icon: <Shuffle size={22} />, path: '/adjustments' },
     { id: 'contact', label: 'Contact', icon: <MessageSquare size={22} />, path: '/contact' },
+    { id: 'inbox', label: 'Inbox', icon: <Inbox size={22} />, path: '/inbox' },
     { id: 'settings', label: 'Settings', icon: <Settings size={22} />, path: '/settings' },
   ];
 
@@ -33,9 +34,10 @@ const Sidebar = ({ isOpen, isMobile, onToggle, onClose }) => {
   const hodItems = [
     // Points to the new Approvals page
     { id: 'approvals', label: 'Approvals', icon: <FileCheck size={22} />, path: '/approvals' },
-    { id: 'rejected-leaves', label: 'Rejected Leaves', icon: <CalendarOff size={22} />, path: '/hod/rejected-review' },
-    { id: 'reports', label: 'Reports', icon: <ClipboardList size={22} />, path: '/reports' }, 
+    { id: 'reports', label: 'Reports', icon: <ClipboardList size={22} />, path: '/reports' },
+    { id: 'hod-messages', label: 'Messages', icon: <Mail size={22} />, path: '/hod/messages' },
   ];
+
 
   // 3. Admin Items
   const adminItems = [
@@ -61,8 +63,7 @@ const Sidebar = ({ isOpen, isMobile, onToggle, onClose }) => {
     menuItems = [
       { id: 'principal-dashboard', label: 'Dashboard', icon: <Home size={22} />, path: '/principal-dashboard' },
       { id: 'principal-employees', label: 'All Employees', icon: <Users size={22} />, path: '/principal/employees' },
-      { id: 'principal-approvals', label: 'Leave Review', icon: <FileCheck size={22} />, path: '/principal/approvals' },
-      { id: 'principal-rejected', label: 'Rejected Leaves', icon: <CalendarOff size={22} />, path: '/principal/rejected-review' },
+      { id: 'principal-rejected', label: 'Leave Decision Review', icon: <FileCheck size={22} />, path: '/principal/rejected-review' },
       { id: 'principal-analytics', label: 'Trends & Analytics', icon: <BarChart2 size={22} />, path: '/principal/analytics' },
       { id: 'principal-reports', label: 'Reports', icon: <Globe size={22} />, path: '/principal/reports' },
       { id: 'principal-messages', label: 'Messages', icon: <Mail size={22} />, path: '/principal/messages' },

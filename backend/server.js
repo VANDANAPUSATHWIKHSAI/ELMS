@@ -131,6 +131,7 @@ app.post('/api/auth/login', async (req, res) => {
         employeeId: user.employeeId, 
         role: user.role, 
         dept: user.department,
+        teachingYear: user.teachingYear,
         firstName: user.firstName,
         lastName: user.lastName
       },
@@ -146,8 +147,8 @@ app.post('/api/auth/login', async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,
-        department: user.department
-      }
+        department: user.department,
+        }
     });
   } catch (err) {
     res.status(500).json({ message: "Server Error", error: err.message });
@@ -478,7 +479,7 @@ async function unbridgeAdjacentHolidays(employeeId, rejectedLeaveStartDate, reje
                 const d = new Date(l.endDate);
                 return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === prevEndDateStr;
             });
-            if (prevLeave) await processAdjacentLeave(prevLeave, backwardBridge);
+            if (prevLeave && !prevLeave.isHalfDay) await processAdjacentLeave(prevLeave, backwardBridge);
         }
 
         // 2. Scan Forwards
@@ -499,7 +500,7 @@ async function unbridgeAdjacentHolidays(employeeId, rejectedLeaveStartDate, reje
                 const d = new Date(l.startDate);
                 return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === nextStartDateStr;
             });
-            if (nextLeave) await processAdjacentLeave(nextLeave, forwardBridge);
+            if (nextLeave && !nextLeave.isHalfDay) await processAdjacentLeave(nextLeave, forwardBridge);
         }
         
         if (balanceModified) {
@@ -592,10 +593,6 @@ async function recalculateFutureLeaves(employeeId, rejectedLeaveDate, rejectedLe
                     clDeducted -= upgradeClToCcl;
                     
                     ledgerEntries.push({
-                        employeeId, transactionType: 'Debit', leaveType: 'CCL', amount: -upgradeClToCcl,
-                        reason: `Balance Re-evaluation (Upgraded from CL) #${leave._id}`, referenceId: leave._id, balanceAfter: user.leaveBalance.ccl
-                    });
-                    ledgerEntries.push({
                         employeeId, transactionType: 'Credit', leaveType: 'CL', amount: upgradeClToCcl,
                         reason: `Balance Re-evaluation (Reverted CL) #${leave._id}`, referenceId: leave._id, balanceAfter: user.leaveBalance.cl
                     });
@@ -653,6 +650,132 @@ async function recalculateFutureLeaves(employeeId, rejectedLeaveDate, rejectedLe
         console.error("Error in recalculateFutureLeaves:", err);
     }
 }
+
+// --- DYNAMIC SANDWICH BRIDGE HELPER ---
+async function applySandwichBridges(leaveId) {
+    try {
+        const leave = await LeaveRequest.findById(leaveId);
+        if (!leave || (leave.status !== 'Approved' && leave.status !== 'Auto-Approved')) return;
+        if (leave.isHalfDay) return;
+
+        const employeeId = leave.employeeId;
+        const allHolidays = await Holiday.find({});
+
+        const getHolidayType = (date) => {
+            const d = new Date(date);
+            d.setHours(0,0,0,0);
+            const day = d.getDay();
+            const h = allHolidays.find(h => {
+                const hStart = new Date(h.startDate);
+                const hEnd = new Date(h.endDate);
+                hStart.setHours(0,0,0,0);
+                hEnd.setHours(0,0,0,0);
+                return d >= hStart && d <= hEnd;
+            });
+            if (h) return h.type;
+            if (day === 0) return 'Sunday';
+            return null;
+        };
+
+        const isDeductibleHoliday = (date) => {
+            const type = getHolidayType(date);
+            return (type === 'Sunday' || (type && type !== 'Summer Holidays'));
+        };
+
+        const user = await User.findOne({ employeeId });
+        if (!user) return;
+
+        let totalBridgeDeducted = 0;
+        const ledgerEntries = [];
+        const breakdown = leave.deductionBreakdown || {};
+        
+        const getBreakdownVal = (key) => {
+            if (typeof breakdown.get === 'function') return breakdown.get(key) || 0;
+            return breakdown[key] || 0;
+        };
+        const setBreakdownVal = (key, val) => {
+            if (typeof breakdown.set === 'function') breakdown.set(key, val);
+            else breakdown[key] = val;
+        };
+
+        // 1. Scan Backwards
+        let backwardScan = new Date(leave.startDate);
+        backwardScan.setDate(backwardScan.getDate() - 1);
+        let backwardBridge = 0;
+        let safety = 0;
+        while (isDeductibleHoliday(backwardScan) && safety < 10) {
+            backwardBridge++;
+            backwardScan.setDate(backwardScan.getDate() - 1);
+            safety++;
+        }
+        if (backwardBridge > 0) {
+            const prevEndDateStr = `${backwardScan.getFullYear()}-${String(backwardScan.getMonth() + 1).padStart(2, '0')}-${String(backwardScan.getDate()).padStart(2, '0')}`;
+            const prevApproved = await LeaveRequest.findOne({
+                employeeId,
+                status: { $in: ['Approved', 'Auto-Approved'] },
+                endDate: prevEndDateStr,
+                isHalfDay: false
+            });
+            if (prevApproved) totalBridgeDeducted += backwardBridge;
+        }
+
+        // 2. Scan Forwards
+        let forwardScan = new Date(leave.endDate);
+        forwardScan.setDate(forwardScan.getDate() + 1);
+        let forwardBridge = 0;
+        safety = 0;
+        while (isDeductibleHoliday(forwardScan) && safety < 10) {
+            forwardBridge++;
+            forwardScan.setDate(forwardScan.getDate() + 1);
+            safety++;
+        }
+        if (forwardBridge > 0) {
+            const nextStartDateStr = `${forwardScan.getFullYear()}-${String(forwardScan.getMonth() + 1).padStart(2, '0')}-${String(forwardScan.getDate()).padStart(2, '0')}`;
+            const nextApproved = await LeaveRequest.findOne({
+                employeeId,
+                status: { $in: ['Approved', 'Auto-Approved'] },
+                startDate: nextStartDateStr,
+                isHalfDay: false
+            });
+            if (nextApproved) totalBridgeDeducted += forwardBridge;
+        }
+
+        if (totalBridgeDeducted > 0) {
+            let remaining = totalBridgeDeducted;
+            if (remaining > 0 && user.leaveBalance.cl > 0) {
+               const use = Math.min(remaining, user.leaveBalance.cl);
+               user.leaveBalance.cl -= use;
+               setBreakdownVal('cl', getBreakdownVal('cl') + use);
+               remaining -= use;
+               ledgerEntries.push({
+                   employeeId, transactionType: 'Debit', leaveType: 'CL', amount: -use,
+                   reason: `Sandwich Rule (Intervening Holidays) for Leave #${leave._id}`, referenceId: leave._id, balanceAfter: user.leaveBalance.cl
+               });
+            }
+            if (remaining > 0) {
+                user.leaveBalance.lop = (user.leaveBalance.lop || 0) + remaining;
+                setBreakdownVal('lop', getBreakdownVal('lop') + remaining);
+                ledgerEntries.push({
+                    employeeId, transactionType: 'Debit', leaveType: 'LOP', amount: -remaining,
+                    reason: `Sandwich Rule (LOP) for Leave #${leave._id}`, referenceId: leave._id, balanceAfter: user.leaveBalance.lop
+                });
+                remaining = 0;
+            }
+            
+            leave.deductionBreakdown = breakdown;
+            leave.markModified('deductionBreakdown');
+            await leave.save();
+            
+            user.markModified('leaveBalance');
+            await user.save();
+            if (ledgerEntries.length > 0) await LeaveLedger.insertMany(ledgerEntries);
+            console.log(`[SANDWICH] Applied ${totalBridgeDeducted} bridge days for Leave #${leave._id}`);
+        }
+    } catch (err) {
+        console.error("Error in applySandwichBridges:", err);
+    }
+}
+// --- END DYNAMIC SANDWICH BRIDGE HELPER ---
 // --- END LEAVE RECALCULATION ENGINE ---
 
 app.post('/api/leave/apply', authMiddleware, upload.single('document'), async (req, res) => {
@@ -799,7 +922,7 @@ app.post('/api/leave/apply', authMiddleware, upload.single('document'), async (r
           status: { $in: ['Approved', 'Auto-Approved', 'Pending'] },
           endDate: prevEndDateStr
       });
-      if (prevLeaveExists) totalDeductionDays += backwardBridge;
+      if (prevLeaveExists && !prevLeaveExists.isHalfDay) totalDeductionDays += backwardBridge;
 
       // Scan forwards from endDate
       let forwardScan = new Date(endLocalDate);
@@ -818,7 +941,7 @@ app.post('/api/leave/apply', authMiddleware, upload.single('document'), async (r
           status: { $in: ['Approved', 'Auto-Approved', 'Pending'] },
           startDate: nextStartDateStr
       });
-      if (nextLeaveExists) totalDeductionDays += forwardBridge;
+      if (nextLeaveExists && !nextLeaveExists.isHalfDay) totalDeductionDays += forwardBridge;
     }
 
     const days = totalDeductionDays;
@@ -863,6 +986,7 @@ app.post('/api/leave/apply', authMiddleware, upload.single('document'), async (r
       const alToDeduct = Math.min(remainingDays, alAvailable);
       if (alToDeduct > 0) {
         breakdown.al = alToDeduct;
+        user.leaveBalance.al -= alToDeduct; // Deduction fix
         remainingDays -= alToDeduct;
       }
 
@@ -1289,7 +1413,14 @@ app.get('/api/leave/pending/:department', authMiddleware, roleMiddleware(['HoD',
   try {
     // Find users in department (Case Insensitive)
     const departmentRegex = new RegExp(`^${req.params.department}$`, 'i');
-    const usersInDept = await User.find({ department: departmentRegex }).select('employeeId');
+    const userQuery = { department: departmentRegex };
+    
+    // If requester is HoD, further filter by their assigned teachingYear
+    if (req.user.role === 'HoD' && req.user.teachingYear) {
+      userQuery.teachingYear = req.user.teachingYear;
+    }
+
+    const usersInDept = await User.find(userQuery).select('employeeId');
     const employeeIds = usersInDept.map(u => u.employeeId);
 
     // Find pending leaves
@@ -1320,7 +1451,14 @@ app.get('/api/hod/leave-history/:department', authMiddleware, roleMiddleware(['H
     
     // 1. Get Users in Department (Case Insensitive)
     const departmentRegex = new RegExp(`^${req.params.department}$`, 'i');
-    const usersInDept = await User.find({ department: departmentRegex }).select('employeeId firstName lastName');
+    const userQuery = { department: departmentRegex };
+
+    // If requester is HoD, further filter by their assigned teachingYear
+    if (req.user.role === 'HoD' && req.user.teachingYear) {
+      userQuery.teachingYear = req.user.teachingYear;
+    }
+
+    const usersInDept = await User.find(userQuery).select('employeeId firstName lastName');
     const employeeIds = usersInDept.map(u => u.employeeId);
 
     // 2. Build Leave Query
@@ -1386,15 +1524,15 @@ app.post('/api/leave/action', authMiddleware, roleMiddleware(['HoD', 'Principal'
     const actionByName = `${fName} ${lName} (${req.user.role || 'Staff'})`.replace(/\s+/g, ' ').trim();
     
     if (req.user.role === 'Principal') {
+      // Logic for Multi-Principal (Year-Specific)
       leave.principalApproval = { status: action, comment, date: new Date(), actionBy: actionByName };
     } else {
       leave.hodApproval = { status: action, comment, date: new Date(), actionBy: actionByName };
-      
-      // If HoD approves OD, we can mark principal status as N/A or Approved as well
-      if (action === 'Approved' && (leave.leaveType === 'OD' || leave.leaveType.includes('OD'))) {
-          if (!leave.principalApproval) leave.principalApproval = {};
-          leave.principalApproval.status = 'Approved';
-      }
+      // Removed auto-approval of OD leaves by Principal to allow for Principal review
+    }
+
+    if (action === 'Approved') {
+        await applySandwichBridges(leaveId);
     }
 
     // OVERRULE: If leave was REJECTED and the OTHER role now APPROVES, we must re-deduce balance
@@ -1526,24 +1664,35 @@ app.get('/api/users/search', authMiddleware, async (req, res) => {
 // P1. GET GLOBAL STATS
 app.get('/api/principal/stats', authMiddleware, roleMiddleware(['Principal', 'Admin']), async (req, res) => {
   try {
-     const totalStaff = await User.countDocuments({ role: { $in: ['Employee', 'HoD'] } });
-     const pendingLeaves = await LeaveRequest.countDocuments({ status: 'Pending' });
+      const totalStaff = await User.countDocuments({ role: { $in: ['Employee', 'HoD'] } });
+      const hods = await User.find({ role: 'HoD' }).select('employeeId');
+      const hodIds = hods.map(h => h.employeeId);
+      
+      const pendingLeaves = await LeaveRequest.countDocuments({ status: 'Pending', employeeId: { $in: hodIds } });
 
-     // Leaves today
-     const today = new Date();
-     const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-     const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
 
-     const onLeaveToday = await LeaveRequest.countDocuments({
-       status: { $in: ['Approved', 'Auto-Approved'] },
-       startDate: { $lte: endOfDay },
-       endDate: { $gte: startOfDay }
-     });
+      const leavesToday = await LeaveRequest.find({
+        status: { $in: ['Approved', 'Auto-Approved'] },
+        startDate: { $lte: endOfDay },
+        endDate: { $gte: startOfDay }
+      });
 
-     // Calculate attendance percentage (Staff - OnLeaveToday) / Staff
-     const attendancePercent = totalStaff > 0 ? Math.round(((totalStaff - onLeaveToday) / totalStaff) * 100) : 100;
+      // Filter out leaves where user doesn't exist
+      let validOnLeaveCount = 0;
+      for (const l of leavesToday) {
+        const u = await User.findOne({ employeeId: l.employeeId });
+        if (u) validOnLeaveCount++;
+      }
 
-     res.json({ totalStaff, pendingLeaves, onLeaveToday, attendancePercent });
+      const onLeaveToday = validOnLeaveCount;
+
+      // Calculate attendance percentage (Staff - OnLeaveToday) / Staff
+      const attendancePercent = totalStaff > 0 ? Math.round(((totalStaff - onLeaveToday) / totalStaff) * 100) : 100;
+
+      res.json({ totalStaff, pendingLeaves, onLeaveToday, attendancePercent });
   } catch (err) {
      res.status(500).json({ message: "Server Error" });
   }
@@ -1552,67 +1701,68 @@ app.get('/api/principal/stats', authMiddleware, roleMiddleware(['Principal', 'Ad
 // P2. GET TODAY LEAVES ACROSS ALL DEPTS
 app.get('/api/principal/today-leaves', authMiddleware, roleMiddleware(['Principal', 'Admin']), async (req, res) => {
   try {
-     const today = new Date();
-     const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-     const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
 
-     const leaves = await LeaveRequest.find({
-       status: { $in: ['Approved', 'Auto-Approved'] },
-       startDate: { $lte: endOfDay },
-       endDate: { $gte: startOfDay }
-     });
-     
-     const userIds = leaves.map(l => l.employeeId);
-     const users = await User.find({ employeeId: { $in: userIds } });
-     
-     const leavesWithNames = leaves.map(leave => {
-       const user = users.find(u => u.employeeId === leave.employeeId);
-       return {
-         ...leave.toObject(),
-         employeeName: user ? `${user.firstName} ${user.lastName}` : 'Unknown',
-         department: user ? user.department : 'Unknown'
-       };
-     });
-     
-     res.json(leavesWithNames);
+      const leaves = await LeaveRequest.find({
+        status: { $in: ['Approved', 'Auto-Approved'] },
+        startDate: { $lte: endOfDay },
+        endDate: { $gte: startOfDay }
+      });
+      
+      const enriched = (await Promise.all(leaves.map(async (leave) => {
+        const user = await User.findOne({ employeeId: leave.employeeId });
+        if (!user) return null;
+        return {
+          ...leave.toObject(),
+          employeeName: `${user.firstName} ${user.lastName}`,
+          department: user.department || user.dept
+        };
+      }))).filter(l => l !== null);
+      
+      res.json(enriched);
   } catch(err) { res.status(500).json({ message: "Server Error" }) }
 });
 
 // P3. GET GLOBAL PENDING FOR RATIFICATION
 app.get('/api/principal/pending', authMiddleware, roleMiddleware(['Principal', 'Admin']), async (req, res) => {
   try {
-     const leaves = await LeaveRequest.find({ status: 'Pending' }).sort({ appliedOn: 1 });
-     const userIds = leaves.map(l => l.employeeId);
+      const hods = await User.find({ role: 'HoD' }).select('employeeId');
+      const hodIds = hods.map(h => h.employeeId);
+      
+      const leaves = await LeaveRequest.find({ status: 'Pending', employeeId: { $in: hodIds } }).sort({ appliedOn: 1 });
+      const userIds = leaves.map(l => l.employeeId);
      const users = await User.find({ employeeId: { $in: userIds } });
      
-     const leavesWithNames = leaves.map(leave => {
-       const user = users.find(u => u.employeeId === leave.employeeId);
+     const leavesWithNames = (await Promise.all(leaves.map(async (leave) => {
+       const user = await User.findOne({ employeeId: leave.employeeId });
+       if (!user) return null;
        return {
          ...leave.toObject(),
-         employeeName: user ? `${user.firstName} ${user.lastName}` : 'Unknown',
-         department: user ? user.department : 'Unknown'
+         employeeName: `${user.firstName} ${user.lastName}`,
+         department: user.department || 'Unknown'
        };
-     });
+     }))).filter(l => l !== null);
      res.json(leavesWithNames);
-  } catch(err) { res.status(500).json({ message: "Server error" }) }
-});
-
-// P4. GET GLOBAL LEAVE HISTORY
-app.get('/api/principal/leave-history', authMiddleware, roleMiddleware(['Principal', 'Admin']), async (req, res) => {
-  try {
-     const leaves = await LeaveRequest.find().sort({ appliedOn: -1 }).limit(100);
-     const userIds = leaves.map(l => l.employeeId);
-     const users = await User.find({ employeeId: { $in: userIds } });
-     
-     const leavesWithNames = leaves.map(leave => {
-       const user = users.find(u => u.employeeId === leave.employeeId);
-       return {
-         ...leave.toObject(),
-         employeeName: user ? `${user.firstName} ${user.lastName}` : 'Unknown',
-         department: user ? user.department : 'Unknown'
-       };
-     });
-     res.json(leavesWithNames);
+   } catch(err) { res.status(500).json({ message: "Server error" }) }
+ });
+ 
+ // P4. GET GLOBAL LEAVE HISTORY
+ app.get('/api/principal/leave-history', authMiddleware, roleMiddleware(['Principal', 'Admin']), async (req, res) => {
+   try {
+      const leaves = await LeaveRequest.find().sort({ appliedOn: -1 }).limit(100);
+      
+      const leavesWithNames = (await Promise.all(leaves.map(async (leave) => {
+        const user = await User.findOne({ employeeId: leave.employeeId });
+        if (!user) return null;
+        return {
+          ...leave.toObject(),
+          employeeName: `${user.firstName} ${user.lastName}`,
+          department: user.department || 'Unknown'
+        };
+      }))).filter(l => l !== null);
+      res.json(leavesWithNames);
   } catch(err) { res.status(500).json({ message: "Server error" }) }
 });
 
@@ -1644,13 +1794,19 @@ app.get('/api/principal/analytics/trends', authMiddleware, roleMiddleware(['Prin
       const start = new Date(m.year, m.month, 1);
       const end = new Date(m.year, m.month + 1, 0, 23, 59, 59);
       
-      const leaveCount = await LeaveRequest.countDocuments({
+      const leaves = await LeaveRequest.find({
         status: { $in: ['Approved', 'Auto-Approved'] },
         startDate: { $lte: end },
         endDate: { $gte: start }
       });
+
+      let count = 0;
+      for (const l of leaves) {
+        const u = await User.findOne({ employeeId: l.employeeId });
+        if (u) count++;
+      }
       
-      return { month: m.name, count: leaveCount };
+      return { month: m.name, count };
     }));
 
     res.json(trends);
@@ -1660,33 +1816,64 @@ app.get('/api/principal/analytics/trends', authMiddleware, roleMiddleware(['Prin
 });
 
 // 12. PRINCIPAL: HOD REJECTED LEAVES
-app.get('/api/principal/hod-rejected', authMiddleware, roleMiddleware(['Principal', 'Admin']), async (req, res) => {
+// 12. PRINCIPAL: GET ALL HOD-REVIEWED LEAVES (Approved OR Rejected by HoD, future only, not yet overruled)
+app.get('/api/principal/hod-reviewed', authMiddleware, roleMiddleware(['Principal', 'Admin']), async (req, res) => {
   try {
     const today = new Date();
-    today.setHours(0,0,0,0);
+    today.setHours(0, 0, 0, 0);
 
-    const rejectedLeaves = await LeaveRequest.find({
-      status: 'Rejected',
-      'hodApproval.status': 'Rejected',
-      startDate: { $gt: today }
+    // Get leaves where HoD has decided AND startDate hasn't passed AND principal hasn't already reviewed
+    const leaves = await LeaveRequest.find({
+      'hodApproval.status': { $in: ['Approved', 'Rejected'] },
+      startDate: { $gte: today },
+      $or: [
+        { 'principalApproval.status': { $exists: false } },
+        { 'principalApproval.status': 'N/A' },
+        { 'principalApproval.status': 'Pending' }
+      ]
     }).sort({ startDate: 1 });
 
-    console.log(`[DEBUG] Principal Rejected Query: Found ${rejectedLeaves.length} leaves. FilterDate: ${today.toISOString()}`);
-
-    const leavesWithNames = await Promise.all(rejectedLeaves.map(async (leave) => {
+    const leavesWithNames = (await Promise.all(leaves.map(async (leave) => {
       const user = await User.findOne({ employeeId: leave.employeeId });
+      if (!user) return null;
       return {
         ...leave._doc,
-        employeeName: user ? `${user.firstName} ${user.lastName}` : "Unknown",
-        department: user ? user.department || user.dept : "Unknown"
+        employeeName: `${user.firstName} ${user.lastName}`,
+        department: user.department || user.dept
       };
-    }));
+    }))).filter(l => l !== null);
 
     res.json(leavesWithNames);
   } catch (err) {
-    res.status(500).json({ message: "Server Error", error: err.message });
+    res.status(500).json({ message: 'Server Error', error: err.message });
   }
 });
+
+// Keep old hod-rejected as alias for backward compatibility
+app.get('/api/principal/hod-rejected', authMiddleware, roleMiddleware(['Principal', 'Admin']), async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const rejectedLeaves = await LeaveRequest.find({
+      status: 'Rejected',
+      'hodApproval.status': 'Rejected',
+      startDate: { $gte: today }
+    }).sort({ startDate: 1 });
+    const leavesWithNames = (await Promise.all(rejectedLeaves.map(async (leave) => {
+      const user = await User.findOne({ employeeId: leave.employeeId });
+      if (!user) return null;
+      return {
+        ...leave._doc,
+        employeeName: `${user.firstName} ${user.lastName}`,
+        department: user.department || user.dept || 'Unknown'
+      };
+    }))).filter(l => l !== null);
+    res.json(leavesWithNames);
+  } catch (err) {
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
 
 // 12b. HOD: PRINCIPAL REJECTED LEAVES
 app.get('/api/hod/principal-rejected/:dept', authMiddleware, roleMiddleware(['HoD', 'Admin']), async (req, res) => {
@@ -1734,15 +1921,16 @@ app.get('/api/principal/reports/lop-late-marks', authMiddleware, roleMiddleware(
       { $limit: 10 }
     ]);
 
-    const lateMarksWithDetails = await Promise.all(lateMarkSummary.map(async (item) => {
+    const lateMarksWithDetails = (await Promise.all(lateMarkSummary.map(async (item) => {
       const user = await User.findOne({ employeeId: item._id }).select('firstName lastName department');
+      if (!user) return null;
       return {
         employeeId: item._id,
-        name: user ? `${user.firstName} ${user.lastName}` : 'Unknown',
-        department: user ? user.department : 'Unknown',
+        name: `${user.firstName} ${user.lastName}`,
+        department: user.department || 'Unknown',
         count: item.count
       };
-    }));
+    }))).filter(l => l !== null);
 
     res.json({ lopSummary, lateMarkSummary: lateMarksWithDetails });
   } catch (err) {
@@ -1788,11 +1976,11 @@ app.get('/api/principal/escalations', authMiddleware, roleMiddleware(['Principal
 app.post('/api/admin/employees', authMiddleware, roleMiddleware(['Admin']), async (req, res) => {
   try {
     const { 
-      employeeId, password, role, firstName, lastName, email, department,
-      designation, mobile, gender, address, aadhaar, pan, aicteId, jntuUid, dob, doj 
+      employeeId, password, firstName, lastName, email, department,
+      designation, mobile, gender, address, teachingYear, aadhaar, pan, aicteId, jntuUid, dob, doj 
     } = req.body;
     
-    if (!employeeId || !password || !firstName || !lastName || !email || !department || !designation || !mobile || !gender || !address || !aadhaar || !pan || !dob || !doj) {
+    if (!employeeId || !password || !firstName || !lastName || !email || !department || !designation || !mobile || !gender || !address || !teachingYear || !aadhaar || !pan || !dob || !doj) {
       return res.status(400).json({ message: "All employee details are required except AICTE and JNTU." });
     }
 
@@ -1806,15 +1994,28 @@ app.post('/api/admin/employees', authMiddleware, roleMiddleware(['Admin']), asyn
     const panError = validatePanFormat(pan);
     if (panError) return res.status(400).json({ message: panError });
 
-    const existing = await User.findOne({ employeeId });
-    if (existing) return res.status(400).json({ message: "Employee ID already exists" });
+    const existingId = await User.findOne({ employeeId });
+    if (existingId) return res.status(400).json({ message: "Employee ID already exists" });
+
+    const existingEmail = await User.findOne({ email });
+    if (existingEmail) return res.status(400).json({ message: "Email already exists" });
 
     const newUser = new User({
-      employeeId, password, role: role || 'Employee', firstName, lastName, email, department,
-      designation, mobile, gender, address, aadhaar, pan, aicteId, jntuUid, dob, doj
+      employeeId, password, role: 'Employee', firstName, lastName, email, department,
+      designation, mobile, gender, address, teachingYear, aadhaar, pan, aicteId, jntuUid, dob, doj
     });
     
     await newUser.save();
+
+    // Auto-assign HoD to Department
+    if (newUser.role === 'HoD' && newUser.department) {
+      const Department = require('./models/Department');
+      await Department.findOneAndUpdate(
+        { name: newUser.department },
+        { hodEmployeeId: newUser.employeeId }
+      );
+    }
+
     res.json({ message: "Employee Created Successfully", user: newUser });
   } catch (err) {
     res.status(500).json({ message: "Error creating employee", error: err.message });
@@ -1836,10 +2037,10 @@ app.put('/api/admin/employees/:id', authMiddleware, roleMiddleware(['Admin']), a
   try {
     const { 
       firstName, lastName, email, department,
-      designation, mobile, gender, address, aadhaar, pan, aicteId, jntuUid, dob, doj 
+      designation, mobile, gender, address, teachingYear, aadhaar, pan, aicteId, jntuUid, dob, doj 
     } = req.body;
 
-    if (!firstName || !lastName || !email || !department || !designation || !mobile || !gender || !address || !aadhaar || !pan || !dob || !doj) {
+    if (!firstName || !lastName || !email || !department || !designation || !mobile || !gender || !address || !teachingYear || !aadhaar || !pan || !dob || !doj) {
       return res.status(400).json({ message: "All employee details are required except AICTE and JNTU." });
     }
 
@@ -1858,8 +2059,17 @@ app.put('/api/admin/employees/:id', authMiddleware, roleMiddleware(['Admin']), a
       req.body,
       { new: true }
     ).select('-password');
-    
     if (!updatedUser) return res.status(404).json({ message: "Employee not found" });
+
+    // Auto-assign HoD to Department
+    if (updatedUser.role === 'HoD' && updatedUser.department) {
+      const Department = require('./models/Department');
+      await Department.findOneAndUpdate(
+        { name: updatedUser.department },
+        { hodEmployeeId: updatedUser.employeeId }
+      );
+    }
+
     res.json({ message: "Employee Updated", user: updatedUser });
   } catch (err) {
     res.status(500).json({ message: "Update Failed", error: err.message });
@@ -1964,12 +2174,13 @@ app.delete('/api/admin/departments/:id', authMiddleware, roleMiddleware(['Admin'
 // --- ADMIN ROUTES: REPORTS & ANALYTICS ---
 
 // A. Global Stats for Dashboard
+// A. Global Stats for Dashboard
 app.get('/api/admin/reports/stats', authMiddleware, roleMiddleware(['Admin', 'Principal']), async (req, res) => {
   try {
     const totalEmployees = await User.countDocuments();
     const totalDepartments = await Department.countDocuments();
     const pendingLeaves = await LeaveRequest.countDocuments({ status: 'Pending' });
-    const approvedLeaves = await LeaveRequest.countDocuments({ status: 'Approved' });
+    const approvedLeaves = await LeaveRequest.countDocuments({ status: { $in: ['Approved', 'Auto-Approved'] } });
     
     res.json({ totalEmployees, totalDepartments, pendingLeaves, approvedLeaves });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -1996,8 +2207,10 @@ app.get('/api/admin/reports/history', authMiddleware, roleMiddleware(['Admin', '
 // B2. Advanced Reports (Filters for Month, Day, Status, Employee)
 app.get('/api/admin/reports/advanced', authMiddleware, roleMiddleware(['Admin', 'Principal']), async (req, res) => {
   try {
-    const { month, date, status, employeeId } = req.query;
+    const { month, date, status, employeeId, searchName } = req.query;
     let query = {};
+
+    
 
     // Filter by Exact Month (YYYY-MM)
     if (month) {
@@ -2023,7 +2236,24 @@ app.get('/api/admin/reports/advanced', authMiddleware, roleMiddleware(['Admin', 
     }
 
     if (status) query.status = status;
-    if (employeeId) query.employeeId = employeeId;
+    
+    // Explicit Employee ID Match
+    if (employeeId) {
+      query.employeeId = employeeId;
+    } 
+    // Partial Name Search
+    else if (searchName) {
+      const searchRegex = new RegExp(searchName, 'i');
+      const matchingUsers = await User.find({
+        $or: [
+          { firstName: searchRegex },
+          { lastName: searchRegex },
+          { employeeId: searchRegex }
+        ]
+      });
+      const matchingIds = matchingUsers.map(u => u.employeeId);
+      query.employeeId = { $in: matchingIds };
+    }
 
     const leaves = await LeaveRequest.find(query).sort({ appliedOn: -1 }).limit(500);
     
@@ -2353,6 +2583,23 @@ app.post('/api/admin/holidays', authMiddleware, roleMiddleware(['Admin']), async
     if (!name || !startDate || !endDate) {
       return res.status(400).json({ message: "Name, StartDate, and EndDate are required." });
     }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (start > end) {
+      return res.status(400).json({ message: "Start date cannot be after end date." });
+    }
+
+    // Overlap Check
+    const overlapping = await Holiday.findOne({
+      $or: [
+        { startDate: { $lte: end }, endDate: { $gte: start } }
+      ]
+    });
+    if (overlapping) {
+      return res.status(400).json({ message: `Holiday range overlaps with existing holiday: ${overlapping.name}` });
+    }
+
     const newHoliday = new Holiday({ name, startDate, endDate, type });
     await newHoliday.save();
     console.log("[ADMIN HOLIDAY] Holiday saved, processing refunds...");
@@ -2380,6 +2627,25 @@ app.put('/api/admin/holidays/:id', authMiddleware, roleMiddleware(['Admin']), as
     const norm = (d) => new Date(d).toISOString().slice(0, 10);
     const datesChanged = norm(oldHoliday.startDate) !== norm(startDate) || 
                         norm(oldHoliday.endDate) !== norm(endDate);
+
+    if (datesChanged) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      if (start > end) {
+        return res.status(400).json({ message: "Start date cannot be after end date." });
+      }
+
+      // Overlap Check (excluding current)
+      const overlapping = await Holiday.findOne({
+        _id: { $ne: req.params.id },
+        $or: [
+          { startDate: { $lte: end }, endDate: { $gte: start } }
+        ]
+      });
+      if (overlapping) {
+        return res.status(400).json({ message: `New holiday range overlaps with another holiday: ${overlapping.name}` });
+      }
+    }
 
     const updated = await Holiday.findByIdAndUpdate(req.params.id, { name, startDate, endDate, type }, { new: true });
     
@@ -2513,7 +2779,15 @@ app.post('/api/adjustments/respond', authMiddleware, async (req, res) => {
 
 app.get('/api/leave/summary/:department', authMiddleware, roleMiddleware(['HoD']), async (req, res) => {
   try {
-    const usersInDept = await User.find({ department: req.params.department }).select('employeeId');
+    const departmentRegex = new RegExp(`^${req.params.department}$`, 'i');
+    const userQuery = { department: departmentRegex };
+
+    // Filter by the HoD's assigned teaching year so counts are year-specific
+    if (req.user.role === 'HoD' && req.user.teachingYear) {
+      userQuery.teachingYear = req.user.teachingYear;
+    }
+
+    const usersInDept = await User.find(userQuery).select('employeeId');
     const employeeIds = usersInDept.map(u => u.employeeId);
     
     // Count specific statuses
@@ -2582,7 +2856,7 @@ app.post('/api/messages/send', authMiddleware, async (req, res) => {
 });
 
 // B. Get inbox for role (Admin or Principal)
-app.get('/api/messages/inbox', authMiddleware, roleMiddleware(['Admin', 'Principal']), async (req, res) => {
+app.get('/api/messages/inbox', authMiddleware, roleMiddleware(['Admin', 'Principal', 'HoD']), async (req, res) => {
   try {
     const messages = await Message.find({ recipientRole: req.user.role }).sort({ createdAt: -1 });
     // Attach sender names
@@ -2600,7 +2874,7 @@ app.get('/api/messages/inbox', authMiddleware, roleMiddleware(['Admin', 'Princip
 });
 
 // C. Mark as read
-app.put('/api/messages/read/:id', authMiddleware, roleMiddleware(['Admin', 'Principal']), async (req, res) => {
+app.put('/api/messages/read/:id', authMiddleware, roleMiddleware(['Admin', 'Principal', 'HoD']), async (req, res) => {
   try {
     await Message.findByIdAndUpdate(req.params.id, { status: 'Read' });
     res.json({ message: "Message marked as read" });
@@ -2726,12 +3000,13 @@ app.delete('/api/admin/leave-types/:id', authMiddleware, roleMiddleware(['Admin'
 
 // --- 13. MESSAGES / CONTACT HR ---
 
-// A. Send a message
+// A. Send a message (Employee → Admin/Principal)
 app.post('/api/messages/send', authMiddleware, async (req, res) => {
   try {
     const { recipientRole, subject, message } = req.body;
     const newMessage = new Message({
       senderId: req.user.employeeId,
+      senderRole: req.user.role,
       recipientRole,
       subject,
       message
@@ -2743,19 +3018,76 @@ app.post('/api/messages/send', authMiddleware, async (req, res) => {
   }
 });
 
-// B. Get inbox for Admin/Principal
-app.get('/api/messages/inbox', authMiddleware, roleMiddleware(['Admin', 'Principal']), async (req, res) => {
+// A2. Send a message to a specific employee (Admin/Principal → Employee)
+app.post('/api/messages/send-to-employee', authMiddleware, roleMiddleware(['Admin', 'Principal', 'HoD']), async (req, res) => {
+  try {
+    const { recipientId, subject, message } = req.body;
+    if (!recipientId || !subject || !message) {
+      return res.status(400).json({ message: 'Recipient Employee ID, subject, and message are required' });
+    }
+    
+    const recipient = await User.findOne({ employeeId: recipientId });
+    if (!recipient) return res.status(404).json({ message: `No employee found with ID: ${recipientId}` });
+    
+    const newMessage = new Message({
+      senderId: req.user.employeeId,
+      senderRole: req.user.role,
+      recipientId: recipientId,
+      subject,
+      message
+    });
+    await newMessage.save();
+    res.json({ message: `Message sent to ${recipient.firstName} ${recipient.lastName}`, data: newMessage });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// A3. Get messages received by an employee (sent by Admin/Principal to them)
+app.get('/api/messages/received', authMiddleware, async (req, res) => {
+  try {
+    const messages = await Message.find({ recipientId: req.user.employeeId }).sort({ createdAt: -1 });
+    const enriched = await Promise.all(messages.map(async (msg) => {
+      const sender = await User.findOne({ employeeId: msg.senderId });
+      return {
+        ...msg.toObject(),
+        senderName: sender ? `${sender.firstName} ${sender.lastName} (${sender.role})` : msg.senderId
+      };
+    }));
+    res.json(enriched);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// A4. Mark a received message as read (employee)
+app.put('/api/messages/received/read/:id', authMiddleware, async (req, res) => {
+  try {
+    const msg = await Message.findById(req.params.id);
+    if (!msg) return res.status(404).json({ message: 'Message not found' });
+    msg.status = 'Read';
+    await msg.save();
+    res.json({ message: 'Marked as read' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// B. Get inbox for Admin/Principal/HoD
+app.get('/api/messages/inbox', authMiddleware, roleMiddleware(['Admin', 'Principal', 'HoD']), async (req, res) => {
   try {
     const messages = await Message.find({ recipientRole: req.user.role }).sort({ createdAt: -1 });
     
     // Attach employee names
-    const enriched = await Promise.all(messages.map(async (msg) => {
+    const enriched = (await Promise.all(messages.map(async (msg) => {
       const user = await User.findOne({ employeeId: msg.senderId });
+      if (!user) return null;
       return {
         ...msg.toObject(),
-        senderName: user ? `${user.firstName} ${user.lastName}` : msg.senderId
+        senderName: `${user.firstName} ${user.lastName}`
       };
-    }));
+    }))).filter(m => m !== null);
     
     res.json(enriched);
   } catch (err) {
@@ -2763,8 +3095,8 @@ app.get('/api/messages/inbox', authMiddleware, roleMiddleware(['Admin', 'Princip
   }
 });
 
-// C. Mark message as read
-app.put('/api/messages/read/:id', authMiddleware, roleMiddleware(['Admin', 'Principal']), async (req, res) => {
+// C. Mark message as read (Admin/Principal/HoD)
+app.put('/api/messages/read/:id', authMiddleware, roleMiddleware(['Admin', 'Principal', 'HoD']), async (req, res) => {
   try {
     const msg = await Message.findById(req.params.id);
     if (!msg) return res.status(404).json({ message: 'Message not found' });
@@ -2772,6 +3104,41 @@ app.put('/api/messages/read/:id', authMiddleware, roleMiddleware(['Admin', 'Prin
     msg.status = 'Read';
     await msg.save();
     res.json({ message: 'Message marked as read' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// D. Reply to a message (Admin/Principal/HoD only)
+app.post('/api/messages/reply/:id', authMiddleware, roleMiddleware(['Admin', 'Principal', 'HoD']), async (req, res) => {
+  try {
+    const { reply } = req.body;
+    if (!reply) return res.status(400).json({ message: 'Reply text is required' });
+    
+    const msg = await Message.findById(req.params.id);
+    if (!msg) return res.status(404).json({ message: 'Message not found' });
+    
+    msg.reply = reply;
+    msg.repliedAt = new Date();
+    msg.repliedBy = req.user.employeeId;
+    msg.status = 'Read'; // Mark as read when replied
+    await msg.save();
+    
+    res.json({ message: 'Reply sent successfully', data: msg });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// E. Get replies for the logged-in employee (for their sent messages)
+app.get('/api/messages/my-replies', authMiddleware, async (req, res) => {
+  try {
+    const messages = await Message.find({ 
+      senderId: req.user.employeeId, 
+      reply: { $ne: null }
+    }).sort({ repliedAt: -1 });
+    
+    res.json(messages);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

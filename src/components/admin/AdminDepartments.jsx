@@ -131,7 +131,6 @@ const AdminDepartments = () => {
               <thead>
                 <tr style={styles.trHeading}>
                   <th style={styles.th}>Department Name</th>
-                  <th style={styles.th}>HoD (Emp ID)</th>
                   <th style={styles.th}>Description</th>
                   <th style={styles.th}>Actions</th>
                 </tr>
@@ -140,7 +139,6 @@ const AdminDepartments = () => {
                 {departments.map(dept => (
                   <tr key={dept._id} style={styles.tr}>
                     <td style={styles.td}><strong>{dept.name}</strong></td>
-                    <td style={styles.td}>{dept.hodEmployeeId || '-'}</td>
                     <td style={styles.td}>{dept.description || '-'}</td>
                     <td style={styles.td}>
                       <div style={styles.actionBlock}>
@@ -171,10 +169,6 @@ const AdminDepartments = () => {
               <div style={styles.inputGroup}>
                  <label style={styles.label}>Department Name *</label>
                  <input required name="name" value={formData.name} onChange={handleInputChange} style={styles.input} placeholder="e.g. Computer Science" />
-              </div>
-              <div style={styles.inputGroup}>
-                 <label style={styles.label}>HoD Employee ID</label>
-                 <input name="hodEmployeeId" value={formData.hodEmployeeId} onChange={handleInputChange} style={styles.input} placeholder="e.g. EMP002" />
               </div>
               <div style={styles.inputGroup}>
                  <label style={styles.label}>Description</label>

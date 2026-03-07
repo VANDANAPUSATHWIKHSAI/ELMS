@@ -20,6 +20,7 @@ const UserSchema = new mongoose.Schema({
   dob: Date,
   doj: Date,
   address: String,
+  teachingYear: String,
   
   // Professional Details
   department: String,

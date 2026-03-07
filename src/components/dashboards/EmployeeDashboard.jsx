@@ -203,10 +203,10 @@ const EmployeeDashboard = () => {
                   return type && type !== 'Summer Holidays';
                 };
 
-                const hasApprovedLeave = (date) => {
+                const getApprovedLeave = (date) => {
                   const d = new Date(date);
                   d.setHours(0,0,0,0);
-                  return leaves.some(l => {
+                  return leaves.find(l => {
                     if (!['Approved', 'Accepted', 'Auto-Approved'].includes(l.status)) return false;
                     const sDate = new Date(l.startDate);
                     const eDate = new Date(l.endDate);
@@ -237,13 +237,17 @@ const EmployeeDashboard = () => {
                   const dayAfterBlock = new Date(blockEnd);
                   dayAfterBlock.setDate(dayAfterBlock.getDate() + 1);
 
-                  // It's a sandwich if both sides have approved leaves
-                  if (hasApprovedLeave(dayBeforeBlock) && hasApprovedLeave(dayAfterBlock)) {
+                  // It's a sandwich ONLY if both sides have FULL-DAY approved leaves
+                  const prevLeave = getApprovedLeave(dayBeforeBlock);
+                  const nextLeave = getApprovedLeave(dayAfterBlock);
+                  
+                  if (prevLeave && !prevLeave.isHalfDay && nextLeave && !nextLeave.isHalfDay) {
                     isSandwich = true;
                   }
                 }
 
-                const isLeaveDay = hasApprovedLeave(cellDate);
+                const currentLeave = getApprovedLeave(cellDate);
+                const isLeaveDay = !!currentLeave;
 
                 let bgColor = 'transparent';
                 let textColor = '#475569';

@@ -40,7 +40,19 @@ const AdminHolidays = () => {
 
   useEffect(() => { fetchHolidays(); }, []);
 
-  const handleInputChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => {
+      const newData = { ...prev, [name]: value };
+      
+      // If startDate is changed and endDate becomes earlier than it, reset endDate
+      if (name === 'startDate' && prev.endDate && value > prev.endDate) {
+        newData.endDate = '';
+      }
+      
+      return newData;
+    });
+  };
 
   const resetForm = () => {
     setFormData({ name: '', startDate: '', endDate: '', type: 'Festival' });
@@ -242,7 +254,15 @@ const AdminHolidays = () => {
                 </div>
                 <div style={{...styles.inputGroup, flex: 1}}>
                   <label style={styles.label}>To Date *</label>
-                  <input required type="date" name="endDate" value={formData.endDate} onChange={handleInputChange} style={styles.input} />
+                   <input 
+                    required 
+                    type="date" 
+                    name="endDate" 
+                    value={formData.endDate} 
+                    onChange={handleInputChange} 
+                    style={styles.input} 
+                    min={formData.startDate}
+                  />
                 </div>
               </div>
               <div style={styles.inputGroup}>

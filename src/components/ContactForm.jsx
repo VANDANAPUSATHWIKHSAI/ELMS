@@ -51,6 +51,7 @@ const ContactForm = () => {
           >
             <option value="Admin">System Admin</option>
             <option value="Principal">Dean / Principal</option>
+            <option value="HoD">Head of Department (HoD)</option>
           </select>
         </div>
 

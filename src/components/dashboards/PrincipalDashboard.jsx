@@ -80,58 +80,46 @@ const PrincipalDashboard = () => {
       </div>
 
 
-      {/* MAIN CONTENT GRID */}
-      <div style={styles.mainGrid}>
-        
-        {/* TODAY'S LEAVES CROSS_DEPT */}
-        <div style={styles.card}>
-           <div style={styles.cardHeader}>
-             <h3 style={styles.cardTitle}>Who is on leave today?</h3>
-             <button onClick={() => navigate('/principal/reports')} style={styles.viewAllBtn}>
-               View All Reports
-             </button>
-           </div>
-           
-           {loading ? (
-             <p style={{color: '#64748b', textAlign: 'center'}}>Loading data...</p>
-           ) : todaysLeaves.length === 0 ? (
-             <div style={{textAlign: 'center', padding: '30px', color: '#64748b', background: '#f8fafc', borderRadius: '12px'}}>
-               <p style={{margin: 0}}>No faculty are on leave today across all departments.</p>
+        {/* MAIN CONTENT GRID */}
+        <div style={styles.mainGridFull}>
+          
+          {/* TODAY'S LEAVES CROSS_DEPT */}
+          <div style={styles.card}>
+             <div style={styles.cardHeader}>
+               <h3 style={styles.cardTitle}>Who is on leave today?</h3>
+               <button onClick={() => navigate('/principal/reports')} style={styles.viewAllBtn}>
+                 View All Reports
+               </button>
              </div>
-           ) : (
-             <div style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
-               {todaysLeaves.map(leave => (
-                 <div key={leave._id} style={styles.leaveItem}>
-                    <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
-                      <div style={styles.avatar}>{leave.employeeName?.[0] || 'U'}</div>
-                      <div>
-                        <div style={{fontWeight: 'bold', fontSize: '15px', color: '#1e293b'}}>{leave.employeeName}</div>
-                        <div style={{fontSize: '13px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px'}}>
-                           <span style={{fontWeight: '600', color: kmitOrange}}>{leave.department}</span> • {leave.leaveType}
+             
+             {loading ? (
+               <p style={{color: '#64748b', textAlign: 'center'}}>Loading data...</p>
+             ) : todaysLeaves.length === 0 ? (
+               <div style={{textAlign: 'center', padding: '30px', color: '#64748b', background: '#f8fafc', borderRadius: '12px'}}>
+                 <p style={{margin: 0}}>No faculty are on leave today across all departments.</p>
+               </div>
+             ) : (
+               <div style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
+                 {todaysLeaves.map(leave => (
+                   <div key={leave._id} style={styles.leaveItem}>
+                      <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
+                        <div style={styles.avatar}>{leave.employeeName?.[0] || 'U'}</div>
+                        <div>
+                          <div style={{fontWeight: 'bold', fontSize: '15px', color: '#1e293b'}}>{leave.employeeName}</div>
+                          <div style={{fontSize: '13px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px'}}>
+                             <span style={{fontWeight: '600', color: kmitOrange}}>{leave.department}</span> • {leave.leaveType}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div style={{fontSize: '12px', fontWeight: 'bold', background: '#e0e7ff', color: '#4f46e5', padding: '6px 12px', borderRadius: '20px'}}>
-                       Today
-                    </div>
-                 </div>
-               ))}
-             </div>
-           )}
-        </div>
-
-        {/* QUICK ACTIONS */}
-        <div style={{display: 'flex', flexDirection: 'column', gap: '20px'}}>
-          <div style={{...styles.card, background: kmitOrange, color: 'white'}}>
-             <h3 style={{margin: '0 0 10px 0', fontSize: '18px'}}>Leave Review</h3>
-             <p style={{margin: '0 0 20px 0', fontSize: '14px', opacity: 0.9}}>You have {stats.pendingLeaves} leaves waiting for ratification or review.</p>
-             <button onClick={() => navigate('/principal/approvals')} style={{...styles.linkBtn, color: kmitOrange, background: 'white', padding: '10px 16px', borderRadius: '8px', width: 'max-content'}}>
-               Review Now <ArrowRight size={16} />
-             </button>
+                      <div style={{fontSize: '12px', fontWeight: 'bold', background: '#e0e7ff', color: '#4f46e5', padding: '6px 12px', borderRadius: '20px'}}>
+                         Today
+                      </div>
+                   </div>
+                 ))}
+               </div>
+             )}
           </div>
         </div>
-
-      </div>
     </div>
   );
 };
@@ -153,7 +141,7 @@ const styles = {
   cardTitle: { margin: 0, fontSize: '18px', color: '#1e293b', fontWeight: '700' },
   
 
-  mainGrid: { display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px', '@media (max-width: 768px)': { gridTemplateColumns: '1fr' } },
+  mainGridFull: { display: 'grid', gridTemplateColumns: '1fr', gap: '24px' },
   viewAllBtn: { background: 'none', border: 'none', color: '#F17F08', fontWeight: '600', cursor: 'pointer', fontSize: '14px' },
   leaveItem: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' },
   avatar: { width: '42px', height: '42px', borderRadius: '50%', background: '#cbd5e1', color: '#334155', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '16px', textTransform: 'uppercase' },

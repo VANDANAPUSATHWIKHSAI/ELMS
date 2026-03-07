@@ -1,0 +1,5 @@
+2026-03-06T21:11:34.708Z CL -1 Leave Application #69ab43065ddf098801ea4404 (Includes Sandwich/Bridge days: 2)
+2026-03-06T21:11:52.905Z CL -3 Leave Application #69ab43185ddf098801ea4410 (Includes Sandwich/Bridge days: 2)
+2026-03-06T21:12:33.801Z CL 1 Leave Rejected (Refund) #69ab43065ddf098801ea4404
+2026-03-06T21:12:33.821Z CL 2 Sandwich Broken Refund for related Leave #69ab43185ddf098801ea4410
+2026-03-06T21:26:12.218Z CL -2 RETROACTIVE: Sandwich Rule Bridge (Mar 14, 15) for Leave #69ab43185ddf098801ea4410
