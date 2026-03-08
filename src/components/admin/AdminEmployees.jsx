@@ -14,6 +14,13 @@ const AdminEmployees = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [departments, setDepartments] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const [formData, setFormData] = useState({
     employeeId: '',
@@ -226,10 +233,10 @@ const AdminEmployees = () => {
     <div style={styles.container}>
 
 
-      <div style={styles.header}>
+      <div style={styles.header(isMobile)}>
         <h2 style={styles.title}>Employee Management</h2>
-        <div style={styles.headerActions}>
-           <div style={styles.searchWrapper}>
+        <div style={styles.headerActions(isMobile)}>
+           <div style={styles.searchWrapper(isMobile)}>
               <Search size={18} style={styles.searchIcon} />
               <input 
                 type="text" 
@@ -239,7 +246,7 @@ const AdminEmployees = () => {
                 style={styles.searchInput}
               />
            </div>
-           <button onClick={openAddModal} style={styles.addButton}>
+           <button onClick={openAddModal} style={styles.addButton(isMobile)}>
              <Plus size={16} /> Add Employee
            </button>
         </div>
@@ -252,32 +259,32 @@ const AdminEmployees = () => {
           <div style={styles.tableWrapper}>
             <table style={styles.table}>
               <thead>
-                <tr style={styles.trHeading}>
-                  <th style={styles.th}>ID</th>
-                  <th style={styles.th}>Name</th>
-                  <th style={styles.th}>Year</th>
-                  <th style={styles.th}>Dept</th>
-                  <th style={styles.th}>Email</th>
-                  <th style={styles.th}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredEmployees.map(emp => (
-                  <tr key={emp._id} style={styles.tr}>
-                    <td style={styles.td}><strong>{emp.employeeId}</strong></td>
-                    <td style={styles.td}>{emp.firstName} {emp.lastName}</td>
-                    <td style={styles.td}>
-                      <span style={{
-                        padding: '4px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold',
-                        background: '#f0fdf4',
-                        color: '#10b981'
-                      }}>
-                        {emp.teachingYear || 'N/A'}
-                      </span>
-                    </td>
-                    <td style={styles.td}>{emp.department || '-'}</td>
-                    <td style={styles.td}>{emp.email || '-'}</td>
-                    <td style={styles.td}>
+                  <tr style={styles.trHeading}>
+                    <th style={styles.th(isMobile)}>ID</th>
+                    <th style={styles.th(isMobile)}>Name</th>
+                    <th style={styles.th(isMobile)}>Year</th>
+                    <th style={styles.th(isMobile)}>Dept</th>
+                    <th style={styles.th(isMobile)}>Email</th>
+                    <th style={styles.th(isMobile)}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredEmployees.map(emp => (
+                    <tr key={emp._id} style={styles.tr}>
+                      <td style={styles.td(isMobile)}><strong>{emp.employeeId}</strong></td>
+                      <td style={styles.td(isMobile)}>{emp.firstName} {emp.lastName}</td>
+                      <td style={styles.td(isMobile)}>
+                        <span style={{
+                          padding: '4px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold',
+                          background: '#f0fdf4',
+                          color: '#10b981'
+                        }}>
+                          {emp.teachingYear || 'N/A'}
+                        </span>
+                      </td>
+                      <td style={styles.td(isMobile)}>{emp.department || '-'}</td>
+                      <td style={styles.td(isMobile)}>{emp.email || '-'}</td>
+                      <td style={styles.td(isMobile)}>
                       <div style={styles.actionBlock}>
                         <button onClick={() => openEditModal(emp)} style={styles.iconBtnEdit} title="Edit"><Edit2 size={16} /></button>
                         <button onClick={() => handleDelete(emp.employeeId)} style={styles.iconBtnDel} title="Delete"><Trash2 size={16} /></button>
@@ -452,13 +459,42 @@ const AdminEmployees = () => {
 };
 
 const styles = {
-  container: { padding: '20px', maxWidth: '1100px', margin: '0 auto' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' },
+  container: { padding: '20px', maxWidth: '1100px', margin: '0 auto', paddingBottom: '40px' },
+  header: isMobile => ({ 
+    display: 'flex', 
+    flexDirection: isMobile ? 'column' : 'row',
+    justifyContent: 'space-between', 
+    alignItems: isMobile ? 'flex-start' : 'center', 
+    marginBottom: '20px',
+    gap: isMobile ? '15px' : '0'
+  }),
   title: { fontSize: '24px', color: '#1e293b', margin: 0, fontWeight: '700' },
-  addButton: { display: 'flex', alignItems: 'center', gap: '8px', background: '#F17F08', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' },
+  addButton: isMobile => ({ 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    gap: '8px', 
+    background: '#F17F08', 
+    color: 'white', 
+    border: 'none', 
+    padding: '10px 16px', 
+    borderRadius: '8px', 
+    cursor: 'pointer', 
+    fontWeight: 'bold',
+    width: isMobile ? '100%' : 'auto'
+  }),
   
-  headerActions: { display: 'flex', alignItems: 'center', gap: '15px' },
-  searchWrapper: { position: 'relative', width: '280px' },
+  headerActions: isMobile => ({ 
+    display: 'flex', 
+    flexDirection: isMobile ? 'column' : 'row',
+    alignItems: 'center', 
+    gap: '15px',
+    width: isMobile ? '100%' : 'auto'
+  }),
+  searchWrapper: isMobile => ({ 
+    position: 'relative', 
+    width: isMobile ? '100%' : '280px' 
+  }),
   searchIcon: { position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' },
   searchInput: { width: '100%', padding: '10px 15px 10px 40px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', fontSize: '14px', transition: 'border-color 0.2s', color: '#1e293b' },
   
@@ -466,9 +502,9 @@ const styles = {
   tableWrapper: { overflowX: 'auto' },
   table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' },
   trHeading: { background: '#f8fafc', borderBottom: '2px solid #e2e8f0' },
-  th: { padding: '14px 20px', color: '#64748b', fontWeight: '600' },
+  th: isMobile => ({ padding: isMobile ? '12px 10px' : '14px 20px', color: '#64748b', fontWeight: '600' }),
   tr: { borderBottom: '1px solid #f1f5f9' },
-  td: { padding: '14px 20px', color: '#334155' },
+  td: isMobile => ({ padding: isMobile ? '12px 10px' : '14px 20px', color: '#334155' }),
   
   actionBlock: { display: 'flex', gap: '10px' },
   iconBtnEdit: { background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: '4px' },

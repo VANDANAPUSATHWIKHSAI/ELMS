@@ -289,7 +289,7 @@ const styles = {
   tr: { borderBottom: '1px solid #f1f5f9' },
   td: { padding: '14px 18px', color: '#334155', verticalAlign: 'top' },
 
-  typeBadge: { display: 'inline-block', background: '#eff6ff', color: '#3b82f6', padding: '3px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: '700' },
+  typeBadge: { display: 'inline-block', background: '#eff6ff', color: '#3b82f6', padding: '3px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap', flexShrink: 0 },
   hodBadge: { display: 'inline-block', padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '700' },
   docLink: { display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#ea580c', textDecoration: 'none', fontSize: '11px', fontWeight: '700' },
 

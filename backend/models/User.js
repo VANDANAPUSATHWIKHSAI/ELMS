@@ -36,7 +36,7 @@ const UserSchema = new mongoose.Schema({
   // Leave Balance
   leaveBalance: {
     type: Object,
-    default: { cl: 12, ccl: 0, al: 0, lop: 0 }
+    default: { cl: 6, ccl: 0, al: 0, lop: 0 }
   },
   profileImg: String,
   resetPasswordOTP: String,

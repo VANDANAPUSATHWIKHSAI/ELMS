@@ -64,12 +64,19 @@ const LeaveHistory = () => {
 
   return (
     <div style={styles.container}>
-      <header style={styles.header}>
-        <h1 style={styles.pageTitle}>Leave Summary</h1>
+      <style>{`
+        @media (max-width: 768px) {
+          .hist-title { font-size: 22px !important; }
+          .hist-header { margin-bottom: 15px !important; }
+          .hist-card-head { padding: 15px !important; }
+        }
+      `}</style>
+      <header style={styles.header} className="hist-header">
+        <h1 style={styles.pageTitle} className="hist-title">Leave Summary</h1>
       </header>
 
       <div style={styles.card}>
-        <div style={styles.cardHeader}>
+        <div style={styles.cardHeader} className="hist-card-head">
           <div style={styles.brandLine}></div>
           <h3 style={styles.sectionTitle}>Application Records</h3>
         </div>
@@ -145,16 +152,16 @@ const LeaveHistory = () => {
 };
 
 const styles = {
-  container: { width: '100%', maxWidth: '1200px', margin: '0 auto', paddingBottom: '40px' },
-  header: { marginBottom: window.innerWidth <= 768 ? '15px' : '30px', textAlign: 'center' },
-  pageTitle: { fontSize: window.innerWidth <= 768 ? '22px' : '28px', color: '#1e293b', fontWeight: '800', margin: 0 },
+  container: { width: '100%', maxWidth: '1200px', margin: '0 auto', paddingBottom: '40px', padding: '0 15px', boxSizing: 'border-box' },
+  header: { marginBottom: '30px', textAlign: 'center' },
+  pageTitle: { fontSize: '28px', color: '#1e293b', fontWeight: '800', margin: 0 },
   
   card: { 
     background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', 
     boxShadow: '0 4px 20px rgba(0,0,0,0.03)', overflow: 'hidden'
   },
   cardHeader: { 
-    display: 'flex', alignItems: 'center', gap: '15px', padding: window.innerWidth <= 768 ? '15px' : '20px 25px', 
+    display: 'flex', alignItems: 'center', gap: '15px', padding: '20px 25px', 
     borderBottom: '1px solid #f1f5f9', background: '#fafafa' 
   },
   brandLine: { width: '4px', height: '20px', backgroundColor: '#F17F08', borderRadius: '4px' },

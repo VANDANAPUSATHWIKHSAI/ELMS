@@ -192,7 +192,7 @@ const styles = {
   th: { padding: '16px 20px', color: '#64748b', fontWeight: '600' },
   tr: { borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' },
   td: { padding: '16px 20px', color: '#334155' },
-  typeBadge: { background: '#eff6ff', color: '#3b82f6', padding: '4px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', width: 'fit-content' },
+  typeBadge: { background: '#eff6ff', color: '#3b82f6', padding: '4px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', width: 'fit-content', whiteSpace: 'nowrap', flexShrink: 0 },
   acceptBtn: { display: 'flex', alignItems: 'center', gap: '6px', background: '#16a34a', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' },
   modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
   modalContent: { background: 'white', padding: '30px', borderRadius: '16px', width: '450px', maxWidth: '95%' },

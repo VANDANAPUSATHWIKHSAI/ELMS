@@ -13,6 +13,10 @@ const LeaveRequestSchema = new mongoose.Schema({
   halfDayType: { type: String, enum: ['FN', 'AN', null], default: null }, // Forenoon or Afternoon
   documentUrl: { type: String }, // For AL and On Duty file uploads
   
+  // Internal tracking to support Dynamic Deduction Recalculation
+  originalLeaveType: { type: String },
+  totalDeductionDays: { type: Number },
+  
   // Tracks how many of each leaf type were actually deducted for this request
   deductionBreakdown: {
     type: Map,

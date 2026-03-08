@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../../utils/api';
-import { MessageSquare, CheckCircle, Mail, CornerDownRight, Send, X, PenLine } from 'lucide-react';
+import { MessageSquare, CheckCircle, Mail, CornerDownRight, Send, X, PenLine, Inbox } from 'lucide-react';
 import { useNotification } from '../../context/NotificationContext';
 
 const MessagesView = () => {
@@ -8,6 +8,8 @@ const MessagesView = () => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('inbox'); // New: 'inbox' or 'sent'
+  const [sentMessages, setSentMessages] = useState([]); // New
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyText, setReplyText] = useState('');
   const [replySending, setReplySending] = useState(false);
@@ -19,9 +21,11 @@ const MessagesView = () => {
 
   useEffect(() => {
     fetchMessages();
+    fetchSentMessages();
   }, []);
 
   const fetchMessages = async () => {
+    setLoading(true);
     try {
       const res = await apiFetch('http://localhost:5000/api/messages/inbox');
       if (!res.ok) throw new Error("Failed to fetch messages");
@@ -33,10 +37,26 @@ const MessagesView = () => {
     }
   };
 
+  const fetchSentMessages = async () => {
+    setLoading(true);
+    try {
+      const res = await apiFetch('http://localhost:5000/api/messages/sent');
+      if (!res.ok) throw new Error("Failed to fetch sent messages");
+      setSentMessages(await res.json());
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const markAsRead = async (id) => {
     try {
       const res = await apiFetch(`http://localhost:5000/api/messages/read/${id}`, { method: 'PUT' });
-      if (res.ok) setMessages(prev => prev.map(m => m._id === id ? { ...m, status: 'Read' } : m));
+      if (res.ok) {
+        setMessages(prev => prev.map(m => m._id === id ? { ...m, status: 'Read' } : m));
+        window.dispatchEvent(new Event('messagesUpdated'));
+      }
     } catch (err) { console.error(err); }
   };
 
@@ -55,6 +75,8 @@ const MessagesView = () => {
         setMessages(prev => prev.map(m => m._id === msgId ? { ...m, reply: replyText, status: 'Read' } : m));
         setReplyingTo(null);
         setReplyText('');
+        fetchSentMessages(); // Refresh sent count
+        window.dispatchEvent(new Event('messagesUpdated'));
       } else {
         notify(data.message || 'Failed to send reply', 'error');
       }
@@ -79,6 +101,8 @@ const MessagesView = () => {
         notify(data.message, 'success');
         setShowCompose(false);
         setCompose({ recipientId: '', subject: '', message: '' });
+        fetchSentMessages(); // Refresh sent count
+        window.dispatchEvent(new Event('messagesUpdated'));
       } else {
         notify(data.message || 'Failed to send message', 'error');
       }
@@ -102,6 +126,22 @@ const MessagesView = () => {
           <PenLine size={16} /> Compose Message
         </button>
       </header>
+
+      {/* Tab Switcher */}
+      <div style={styles.tabBar}>
+        <button 
+          onClick={() => setActiveTab('inbox')} 
+          style={{...styles.tab, borderBottom: activeTab === 'inbox' ? '3px solid #F17F08' : 'none', color: activeTab === 'inbox' ? '#F17F08' : '#64748b'}}
+        >
+          <Inbox size={18} /> Inbox ({messages.length})
+        </button>
+        <button 
+          onClick={() => setActiveTab('sent')} 
+          style={{...styles.tab, borderBottom: activeTab === 'sent' ? '3px solid #F17F08' : 'none', color: activeTab === 'sent' ? '#F17F08' : '#64748b'}}
+        >
+          <Send size={18} /> Sent Messages ({sentMessages.length})
+        </button>
+      </div>
 
       {/* Compose Panel */}
       {showCompose && (
@@ -154,83 +194,119 @@ const MessagesView = () => {
         </div>
       )}
 
-      {/* Inbox */}
+      {/* Messages List */}
       {loading ? (
-        <p style={{ textAlign: 'center', color: '#64748b' }}>Loading messages...</p>
+        <p style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>Loading messages...</p>
       ) : error ? (
-        <p style={{ textAlign: 'center', color: '#dc2626' }}>{error}</p>
-      ) : messages.length === 0 ? (
-        <div style={styles.emptyState}>
-          <Mail size={48} color="#cbd5e1" />
-          <p>No messages in your inbox.</p>
-        </div>
-      ) : (
-        <div style={styles.messageList}>
-          {messages.map(msg => (
-            <div key={msg._id} style={{
-              ...styles.messageCard,
-              borderLeft: msg.status === 'Unread' ? '4px solid #F17F08' : '4px solid #10b981',
-              background: msg.status === 'Unread' ? '#fff' : '#f8fafc'
-            }}>
-              <div style={styles.cardHeader}>
-                <div style={styles.senderInfo}>
-                  <strong>{msg.senderName}</strong>
-                  <span style={styles.date}>{formatDate(msg.createdAt)}</span>
-                </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  {msg.status === 'Unread' ? (
-                    <button onClick={() => markAsRead(msg._id)} style={styles.readBtn}>
-                      <CheckCircle size={14} /> Mark Read
+        <p style={{ textAlign: 'center', color: '#dc2626', padding: '40px' }}>{error}</p>
+      ) : activeTab === 'inbox' ? (
+        // INBOX VIEW
+        messages.length === 0 ? (
+          <div style={styles.emptyState}>
+            <Mail size={48} color="#cbd5e1" />
+            <p>No messages in your inbox.</p>
+          </div>
+        ) : (
+          <div style={styles.messageList}>
+            {messages.map(msg => (
+              <div key={msg._id} style={{
+                ...styles.messageCard,
+                borderLeft: msg.status === 'Unread' ? '4px solid #F17F08' : '4px solid #10b981',
+                background: msg.status === 'Unread' ? '#fff' : '#f8fafc'
+              }}>
+                <div style={styles.cardHeader}>
+                  <div style={styles.senderInfo}>
+                    <strong>{msg.senderName}</strong>
+                    <span style={styles.date}>{formatDate(msg.createdAt)}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    {msg.status === 'Unread' ? (
+                      <button onClick={() => markAsRead(msg._id)} style={styles.readBtn}>
+                        <CheckCircle size={14} /> Mark Read
+                      </button>
+                    ) : (
+                      <span style={styles.readBadge}>✓ Read</span>
+                    )}
+                    <button
+                      onClick={() => { setReplyingTo(replyingTo === msg._id ? null : msg._id); setReplyText(''); }}
+                      style={msg.reply ? styles.repliedBtn : styles.replyBtn}
+                    >
+                      <CornerDownRight size={14} /> {msg.reply ? 'Edit Reply' : 'Reply'}
                     </button>
-                  ) : (
-                    <span style={styles.readBadge}>✓ Read</span>
-                  )}
-                  <button
-                    onClick={() => { setReplyingTo(replyingTo === msg._id ? null : msg._id); setReplyText(''); }}
-                    style={msg.reply ? styles.repliedBtn : styles.replyBtn}
-                  >
-                    <CornerDownRight size={14} /> {msg.reply ? 'Edit Reply' : 'Reply'}
-                  </button>
+                  </div>
                 </div>
+                <h3 style={styles.msgSubject}>{msg.subject}</h3>
+                <p style={styles.msgBody}>{msg.message}</p>
+
+                {msg.reply && replyingTo !== msg._id && (
+                  <div style={styles.existingReply}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                      <CornerDownRight size={14} color="#10b981" />
+                      <span style={{ fontSize: '12px', fontWeight: '700', color: '#10b981' }}>YOUR REPLY</span>
+                      {msg.repliedAt && <span style={{ fontSize: '11px', color: '#94a3b8' }}>• {formatDate(msg.repliedAt)}</span>}
+                    </div>
+                    <p style={{ margin: 0, color: '#334155', fontSize: '14px', lineHeight: '1.5' }}>{msg.reply}</p>
+                  </div>
+                )}
+
+                {replyingTo === msg._id && (
+                  <div style={styles.replyBox}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+                      <CornerDownRight size={14} color="#F17F08" />
+                      <span style={{ fontSize: '13px', fontWeight: '700', color: '#F17F08' }}>Reply to {msg.senderName}</span>
+                    </div>
+                    <textarea
+                      value={replyText}
+                      onChange={e => setReplyText(e.target.value)}
+                      rows={3}
+                      style={styles.replyTextarea}
+                      placeholder="Type your reply here..."
+                    />
+                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
+                      <button onClick={() => { setReplyingTo(null); setReplyText(''); }} style={styles.cancelBtn}><X size={14} /> Cancel</button>
+                      <button onClick={() => sendReply(msg._id)} disabled={replySending} style={styles.sendBtn}>
+                        <Send size={14} /> {replySending ? 'Sending...' : 'Send Reply'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-              <h3 style={styles.msgSubject}>{msg.subject}</h3>
-              <p style={styles.msgBody}>{msg.message}</p>
-
-              {msg.reply && replyingTo !== msg._id && (
-                <div style={styles.existingReply}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                    <CornerDownRight size={14} color="#10b981" />
-                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#10b981' }}>YOUR REPLY</span>
-                    {msg.repliedAt && <span style={{ fontSize: '11px', color: '#94a3b8' }}>• {formatDate(msg.repliedAt)}</span>}
+            ))}
+          </div>
+        )
+      ) : (
+        // SENT VIEW
+        sentMessages.length === 0 ? (
+          <div style={styles.emptyState}>
+            <Send size={48} color="#cbd5e1" />
+            <p>You haven't sent any messages yet.</p>
+          </div>
+        ) : (
+          <div style={styles.messageList}>
+            {sentMessages.map(msg => (
+              <div key={msg._id} style={{...styles.messageCard, borderLeft: '4px solid #cbd5e1'}}>
+                <div style={styles.cardHeader}>
+                  <div style={styles.senderInfo}>
+                    <strong>To: {msg.recipientName}</strong>
+                    <span style={styles.date}>{formatDate(msg.createdAt)}</span>
                   </div>
-                  <p style={{ margin: 0, color: '#334155', fontSize: '14px', lineHeight: '1.5' }}>{msg.reply}</p>
+                  {msg.status === 'Read' && <span style={styles.readBadge}>✓ Seen</span>}
                 </div>
-              )}
-
-              {replyingTo === msg._id && (
-                <div style={styles.replyBox}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-                    <CornerDownRight size={14} color="#F17F08" />
-                    <span style={{ fontSize: '13px', fontWeight: '700', color: '#F17F08' }}>Reply to {msg.senderName}</span>
+                <h3 style={styles.msgSubject}>{msg.subject}</h3>
+                <p style={styles.msgBody}>{msg.message}</p>
+                {msg.reply && (
+                  <div style={styles.existingReply}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                      <CornerDownRight size={14} color="#10b981" />
+                      <span style={{ fontSize: '12px', fontWeight: '700', color: '#10b981' }}>RECIPIENT'S REPLY</span>
+                    </div>
+                    <p style={{ margin: 0, color: '#334155', fontSize: '14px', lineHeight: '1.5' }}>{msg.reply}</p>
                   </div>
-                  <textarea
-                    value={replyText}
-                    onChange={e => setReplyText(e.target.value)}
-                    rows={3}
-                    style={styles.replyTextarea}
-                    placeholder="Type your reply here..."
-                  />
-                  <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
-                    <button onClick={() => { setReplyingTo(null); setReplyText(''); }} style={styles.cancelBtn}><X size={14} /> Cancel</button>
-                    <button onClick={() => sendReply(msg._id)} disabled={replySending} style={styles.sendBtn}>
-                      <Send size={14} /> {replySending ? 'Sending...' : 'Send Reply'}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )
       )}
     </div>
   );
@@ -241,6 +317,8 @@ const styles = {
   header: { marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' },
   title: { margin: '0 0 8px 0', fontSize: '28px', color: '#1e293b' },
   subtitle: { margin: 0, color: '#64748b', fontSize: '14px' },
+  tabBar: { display: 'flex', gap: '20px', borderBottom: '1px solid #e2e8f0', marginBottom: '20px', padding: '0 10px' },
+  tab: { display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '15px', fontWeight: '600', transition: 'all 0.2s' },
   composeBtn: { display: 'flex', alignItems: 'center', gap: '8px', background: '#F17F08', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '14px', whiteSpace: 'nowrap' },
   composePanel: { background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '20px', marginBottom: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.04)' },
   closeBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: '#64748b' },

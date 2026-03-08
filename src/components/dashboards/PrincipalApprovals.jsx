@@ -155,6 +155,20 @@ const PrincipalApprovals = () => {
                              <FileText size={12} /> Attachment
                            </a>
                          )}
+
+                         {/* Display Class Adjustments inline for Principal */}
+                         {req.adjustments && req.adjustments.length > 0 && (
+                            <div style={{ marginTop: '10px', background: '#f8fafc', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0', width: 'fit-content' }}>
+                              <strong style={{ fontSize: '11px', color: '#475569', textTransform: 'uppercase' }}>Class Adjustments ({req.adjustments.length})</strong>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '6px' }}>
+                                {req.adjustments.map((adj, i) => (
+                                  <div key={i} style={{ fontSize: '12px', color: '#334155' }}>
+                                    • {formatDate(adj.date)} (P{adj.period.replace(/\D/g,'')}) - {adj.yearAndSection} → <span style={{color: '#F17F08', fontWeight: 'bold'}}>{adj.adjustedWith}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                         )}
                        </div>
                      </td>
                      <td style={styles.td}>
@@ -254,7 +268,7 @@ const styles = {
   tr: { borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s', ':hover': { background: '#f8fafc' } },
   td: { padding: '16px 20px', color: '#334155' },
   
-  typeBadge: { background: '#eff6ff', color: '#3b82f6', padding: '4px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', width: 'fit-content' },
+  typeBadge: { background: '#eff6ff', color: '#3b82f6', padding: '4px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', width: 'fit-content', whiteSpace: 'nowrap', flexShrink: 0 },
   documentLink: { display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#ea580c', textDecoration: 'none', fontSize: '11px', fontWeight: '700', marginTop: '4px' },
   actionBtn: { border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
 

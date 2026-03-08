@@ -6,6 +6,13 @@ const EmployeeSearch = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Fetch initial data on mount
   useEffect(() => {
@@ -50,11 +57,11 @@ const EmployeeSearch = () => {
         @media (max-width: 600px) {
           .dir-header { margin-bottom: 20px; }
           .dir-title { font-size: 22px; }
-          .dir-search { height: 44px; }
+          .dir-search { height: 44px; margin-bottom: 20px; }
           .dir-search input { font-size: 14px; }
-          .dir-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-          .dir-table { min-width: 560px; }
-          .dir-th, .dir-td { padding: 10px 12px; }
+          .dir-table-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+          .dir-table { min-width: 600px; }
+          .dir-th, .dir-td { padding: 12px 10px; font-size: 12px; }
         }
       `}</style>
 
@@ -74,6 +81,20 @@ const EmployeeSearch = () => {
           autoFocus
         />
       </div>
+
+      {/* TOTAL COUNT */}
+      {!loading && results.length > 0 && (
+        <div style={{
+          textAlign: isMobile ? 'center' : 'left', 
+          marginBottom: '20px', 
+          fontSize: '14px', 
+          color: '#64748b',
+          fontWeight: '600',
+          padding: isMobile ? '0 10px' : '0'
+        }}>
+          Showing {results.length} total employees
+        </div>
+      )}
 
       {/* RESULTS TABLE */}
       {loading ? (
@@ -118,9 +139,9 @@ const EmployeeSearch = () => {
                     <td className="dir-td">{emp.designation}</td>
                     <td className="dir-td"><span style={styles.deptBadge}>{emp.department}</span></td>
                     <td className="dir-td">
-                      <div style={styles.contactCell}>
-                        <div style={styles.contactItem}><Mail size={14} color="#64748b" /><span>{emp.email}</span></div>
-                        <div style={styles.contactItem}><Phone size={14} color="#64748b" /><span>{emp.mobile}</span></div>
+                      <div style={{...styles.contactCell, flexDirection: isMobile ? 'column' : 'column', gap: isMobile ? '2px' : '4px'}}>
+                        <div style={styles.contactItem}><Mail size={12} color="#64748b" /><span>{emp.email}</span></div>
+                        <div style={styles.contactItem}><Phone size={12} color="#64748b" /><span>{emp.mobile}</span></div>
                       </div>
                     </td>
                   </tr>
@@ -142,7 +163,7 @@ const EmployeeSearch = () => {
 
 const styles = {
   container: { width: '100%', maxWidth: '1200px', margin: '0 auto', paddingBottom: '40px' },
-  tableWrapper: { background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden', width: '100%', boxShadow: '0 4px 15px rgba(0,0,0,0.02)' },
+  tableWrapper: { background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', overflowX: 'auto', WebkitOverflowScrolling: 'touch', width: '100%', boxShadow: '0 4px 15px rgba(0,0,0,0.02)' },
   tableHeaderRow: { background: '#fafafa', borderBottom: '1px solid #e2e8f0' },
   tr: { borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s ease' },
   employeeCell: { display: 'flex', alignItems: 'center', gap: '12px' },

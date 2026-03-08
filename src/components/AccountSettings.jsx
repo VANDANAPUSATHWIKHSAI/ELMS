@@ -10,6 +10,13 @@ const AccountSettings = () => {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  React.useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -61,7 +68,7 @@ const AccountSettings = () => {
   };
 
   return (
-    <div style={styles.container}>
+    <div style={{...styles.container, padding: isMobile ? '10px' : '20px'}}>
       {toast.visible && (
         <div style={{...styles.toast, backgroundColor: toast.type === 'success' ? '#10b981' : '#dc2626'}}>
           {toast.type === 'success' ? <CheckCircle size={18} color="white" /> : <XCircle size={18} color="white" />}
@@ -70,14 +77,14 @@ const AccountSettings = () => {
       )}
 
       <div style={styles.header}>
-        <h2 style={styles.title}>Account & Settings</h2>
-        <p style={{color: '#64748b', margin: '4px 0 0 0'}}>Manage your administrator account and system preferences.</p>
+        <h2 style={{...styles.title, fontSize: isMobile ? '20px' : '24px', textAlign: isMobile ? 'center' : 'left'}}>Account & Settings</h2>
+        <p style={{color: '#64748b', margin: '4px 0 0 0', textAlign: isMobile ? 'center' : 'left', fontSize: isMobile ? '13px' : '14px'}}>Manage your administrator account and system preferences.</p>
       </div>
 
-      <div style={styles.grid}>
+      <div style={{...styles.grid, gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(350px, 1fr))'}}>
         
         {/* CHANGE PASSWORD CARD */}
-        <div style={styles.card}>
+        <div style={{...styles.card, padding: isMobile ? '16px' : '24px'}}>
           <div style={styles.cardHeader}>
             <Lock size={20} color="#1e293b" />
             <h3 style={styles.cardTitle}>Change Password</h3>
@@ -145,7 +152,7 @@ const AccountSettings = () => {
         </div>
 
         {/* SYSTEM CONFIGURATION CARD (Mock for now) */}
-        <div style={styles.card}>
+        <div style={{...styles.card, padding: isMobile ? '16px' : '24px'}}>
           <div style={styles.cardHeader}>
             <Settings size={20} color="#1e293b" />
             <h3 style={styles.cardTitle}>System Configuration</h3>

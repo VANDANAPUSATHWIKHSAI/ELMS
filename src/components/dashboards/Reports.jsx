@@ -69,6 +69,21 @@ const Reports = () => {
         <p style={styles.subtitle}>View reports and monitor activity for <strong style={{color: kmitOrange}}>{user?.department}</strong></p>
       </header>
 
+      <style>{`
+        .adj-flow { display: flex; align-items: center; gap: 20px; flex: 1; min-width: 300px; }
+        .adj-person { display: flex; align-items: center; gap: 10px; width: 30%; }
+        .adj-middle { display: flex; flex-direction: column; align-items: center; flex: 1; text-align: center; }
+        
+        @media (max-width: 768px) {
+          .adj-flow { flex-direction: column; gap: 12px; align-items: stretch; min-width: 100%; }
+          .adj-person { width: 100%; justify-content: flex-start; }
+          .adj-person.substitute { flex-direction: row; text-align: left; }
+          .adj-middle { align-items: flex-start; border-left: 2px solid #e2e8f0; margin-left: 20px; padding-left: 15px; }
+          .adj-date { display: inline-block; margin-left: 10px; }
+          .adj-arrow { display: none !important; }
+        }
+      `}</style>
+
       {/* TABS (Horizontal Scrollable for many options) */}
       <div style={{...styles.tabContainer, overflowX: 'auto', whiteSpace: 'nowrap'}}>
         <button 
@@ -119,10 +134,10 @@ const Reports = () => {
               <div style={styles.list}>
                 {adjustments.map(adj => (
                   <div key={adj._id} style={styles.listItem}>
-                    <div style={styles.adjFlow}>
+                    <div className="adj-flow">
                       
                       {/* Requester */}
-                      <div style={styles.person}>
+                      <div className="adj-person">
                         <div style={styles.avatar}>{adj.requesterName ? adj.requesterName[0] : '?'}</div>
                         <div>
                           <div style={styles.name}>{adj.requesterName}</div>
@@ -131,16 +146,18 @@ const Reports = () => {
                       </div>
                       
                       {/* Arrow & Class Details */}
-                      <div style={styles.middleSection}>
-                        <div style={styles.classInfo}>
-                          <strong>{adj.classSection}</strong> • {adj.period}
+                      <div className="adj-middle">
+                        <div style={{display: 'flex', alignItems: 'center'}}>
+                          <div style={styles.classInfo}>
+                            <strong>{adj.classSection}</strong> • {adj.period}
+                          </div>
+                          <span className="adj-date" style={styles.dateInfo}>{formatDate(adj.date)}</span>
                         </div>
-                        <ArrowRight size={20} color="#94a3b8" style={{margin: '5px 0'}} />
-                        <div style={styles.dateInfo}>{formatDate(adj.date)}</div>
+                        <ArrowRight className="adj-arrow" size={20} color="#94a3b8" style={{margin: '5px 0'}} />
                       </div>
 
                       {/* Substitute */}
-                      <div style={{...styles.person, textAlign: 'right', flexDirection: 'row-reverse'}}>
+                      <div className="adj-person substitute" style={{textAlign: 'right', flexDirection: 'row-reverse'}}>
                         <div style={{...styles.avatar, background: '#64748b'}}>{adj.targetName ? adj.targetName[0] : '?'}</div>
                         <div>
                           <div style={styles.name}>{adj.targetName}</div>
@@ -284,7 +301,7 @@ const styles = {
   dateInfo: { fontSize: '13px', color: '#64748b', fontWeight: '600' },
   
   statusWrapper: { flexShrink: 0 },
-  badge: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '700', width: 'max-content' },
+  badge: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '700', width: 'max-content', whiteSpace: 'nowrap', flexShrink: 0 },
 
   table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' },
   trHeading: { background: '#f8fafc', borderBottom: '2px solid #e2e8f0' },

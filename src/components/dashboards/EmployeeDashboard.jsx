@@ -81,19 +81,30 @@ const EmployeeDashboard = () => {
   
   return (
     <div style={styles.container}>
+      <style>{`
+        @media (max-width: 768px) {
+          .dash-header { flex-direction: column !important; align-items: flex-start !important; }
+          .dash-greeting { font-size: 24px !important; }
+          .dash-subtitle { font-size: 13px !important; }
+          .dash-grid { grid-template-columns: 1fr !important; }
+          .dash-card { grid-column: span 1 !important; padding: 10px !important; }
+          .date-cell { padding: 8px 0 !important; font-size: 12px !important; }
+        }
+      `}</style>
+
         {/* HEADER SECTION */}
-        <header style={styles.header}>
+        <header style={styles.header} className="dash-header">
           <div>
-            <h1 style={styles.greeting}>Dashboard</h1>
-            <p style={styles.subtitle}>Welcome back! Here is your attendance and leave overview.</p>
+            <h1 style={styles.greeting} className="dash-greeting">Dashboard</h1>
+            <p style={styles.subtitle} className="dash-subtitle">Welcome back! Here is your attendance and leave overview.</p>
           </div>
         </header>
 
         {/* DASHBOARD GRID */}
-        <div style={styles.featureGrid}>
+        <div style={styles.featureGrid} className="dash-grid">
           
           {/* AVAILABLE LEAVES CARD */}
-          <div style={styles.solidCard}>
+          <div style={styles.solidCard} className="dash-card">
             <div style={styles.cardHeader}>
               <ClipboardList size={22} color={kmitOrange} />
               <h3 style={styles.cardTitle}>Available Leaves</h3>
@@ -156,7 +167,7 @@ const EmployeeDashboard = () => {
           </div>
 
           {/* CALENDAR CARD */}
-          <div style={{...styles.solidCard, gridColumn: 'span 2'}}>
+          <div style={{...styles.solidCard, gridColumn: 'span 2'}} className="dash-card">
             <div style={{...styles.cardHeader, justifyContent: 'space-between'}}>
               <div style={{display:'flex', alignItems:'center', gap: '10px'}}>
                 <CalendarIcon size={22} color={kmitOrange} />
@@ -302,6 +313,7 @@ const EmployeeDashboard = () => {
                     title={titleParts.join(' | ')}
                     onMouseDown={() => setSelectedDate(dateKey)}
                     onMouseUp={() => setTimeout(() => setSelectedDate(null), 300)}
+                    className="date-cell"
                   >
                     {dayNum}
                   </div>
@@ -315,30 +327,29 @@ const EmployeeDashboard = () => {
 };
 
 const styles = {
-  container: { width: '100%', maxWidth: '1200px', margin: '0 auto', paddingBottom: '20px' },
+  container: { width: '100%', maxWidth: '1200px', margin: '0 auto', paddingBottom: '20px', padding: '0 15px', boxSizing: 'border-box' },
   header: { 
     display: 'flex', 
-    flexDirection: window.innerWidth <= 768 ? 'column' : 'row',
+    flexDirection: 'row',
     justifyContent: 'space-between', 
-    alignItems: window.innerWidth <= 768 ? 'flex-start' : 'center', 
+    alignItems: 'center', 
     marginBottom: '20px',
     gap: '20px'
   },
-  greeting: { margin: 0, fontSize: window.innerWidth <= 768 ? '24px' : '28px', color: '#1e293b', fontWeight: '800' },
-  subtitle: { color: '#64748b', margin: '4px 0 0 0', fontSize: window.innerWidth <= 768 ? '13px' : '15px' },
+  greeting: { margin: 0, fontSize: '28px', color: '#1e293b', fontWeight: '800' },
+  subtitle: { color: '#64748b', margin: '4px 0 0 0', fontSize: '15px' },
   
   featureGrid: { 
     display: 'grid', 
-    gridTemplateColumns: window.innerWidth <= 768 ? '1fr' : 'repeat(3, 1fr)', 
+    gridTemplateColumns: 'repeat(3, 1fr)', 
     gap: '20px' 
   },
   solidCard: { 
     background: '#fff', 
-    padding: window.innerWidth <= 768 ? '10px' : '12px', 
+    padding: '16px', 
     borderRadius: '10px', 
     border: '1px solid #e2e8f0', 
     boxShadow: '0 1px 3px -1px rgba(0,0,0,0.02)',
-    gridColumn: window.innerWidth <= 768 ? 'span 1' : 'auto'
   },
   cardHeader: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' },
   cardTitle: { margin: 0, fontSize: '16px', color: '#334155', fontWeight: '700' },
@@ -370,8 +381,8 @@ const styles = {
   th: { padding: '14px 20px', color: '#64748b', fontWeight: '600' },
   tr: { borderBottom: '1px solid #f1f5f9' },
   td: { padding: '14px 20px', color: '#334155' },
-  typeBadge: { background: '#eff6ff', color: '#3b82f6', padding: '4px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: '700' },
-  badge: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '700', width: 'max-content' },
+  typeBadge: { background: '#eff6ff', color: '#3b82f6', padding: '4px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap', flexShrink: 0 },
+  badge: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '700', width: 'max-content', whiteSpace: 'nowrap', flexShrink: 0 },
   tabContainer: { display: 'flex', gap: '8px', background: '#f8fafc', padding: '4px', borderRadius: '10px' },
   tabButton: { border: 'none', padding: '6px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', transition: 'all 0.2s' }
 };

@@ -305,8 +305,8 @@ const styles = {
   tr: { borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s', ':hover': { background: '#f8fafc' } },
   td: { padding: '16px 20px', color: '#334155', verticalAlign: 'middle' },
   
-  typeBadge: { background: '#eff6ff', color: '#3b82f6', padding: '4px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', width: 'max-content' },
-  badge: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '700', width: 'max-content' },
+  typeBadge: { background: '#eff6ff', color: '#3b82f6', padding: '4px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', width: 'max-content', whiteSpace: 'nowrap', flexShrink: 0 },
+  badge: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '700', width: 'max-content', whiteSpace: 'nowrap', flexShrink: 0 },
   tabBar: { display: 'flex', gap: '24px', padding: '0 20px', marginBottom: '-1px', borderBottom: '1px solid #e2e8f0' },
   tabLink: { padding: '12px 4px', fontSize: '14px', fontWeight: '600', border: 'none', background: 'none', cursor: 'pointer', transition: 'all 0.2s' },
   alertCard: { display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', borderRadius: '12px', background: '#fee2e2', color: '#dc2626', marginBottom: '24px' }

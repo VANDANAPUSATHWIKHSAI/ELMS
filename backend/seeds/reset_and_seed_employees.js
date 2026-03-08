@@ -49,7 +49,7 @@ async function resetAndSeed() {
             pan: `ABCDE123${i}F`,
             dob: new Date('1990-01-01'),
             doj: new Date('2022-01-01'),
-            leaveBalance: { cl: 12, ccl: 0, al: 5, lop: 0 }
+            leaveBalance: { cl: 6, ccl: 0, al: 5, lop: 0 }
           });
 
           await newUser.save();

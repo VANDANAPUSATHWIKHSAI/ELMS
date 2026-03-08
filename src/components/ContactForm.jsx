@@ -23,6 +23,7 @@ const ContactForm = () => {
         setStatus({ loading: false, success: "Message sent successfully!", error: null });
         setSubject('');
         setMessage('');
+        window.dispatchEvent(new Event('messagesUpdated'));
       } else {
         setStatus({ loading: false, success: null, error: data.message || "Failed to send message" });
       }
@@ -35,7 +36,7 @@ const ContactForm = () => {
     <div style={styles.card}>
       <div style={styles.header}>
         <MessageSquare size={24} color="#F17F08" />
-        <h2 style={styles.title}>Contact Administration</h2>
+        <h2 style={styles.title}>Contact Leadership</h2>
       </div>
       
       {status.success && <div style={styles.successMsg}>{status.success}</div>}

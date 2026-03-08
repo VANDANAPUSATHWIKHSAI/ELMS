@@ -193,14 +193,23 @@ const ApplyLeave = () => {
 
   return (
     <div style={styles.container}>
-
+      <style>{`
+        @media (max-width: 768px) {
+          .resp-title { font-size: 22px !important; }
+          .resp-card { padding: 15px !important; }
+          .resp-row { flex-direction: column !important; }
+          .resp-halfday { flex-direction: column !important; align-items: flex-start !important; }
+          .resp-adj-row { flex-direction: column !important; gap: 5px !important; }
+          .resp-submit { width: 100% !important; padding: 12px !important; font-size: 14px !important; }
+        }
+      `}</style>
 
       <header style={styles.header}>
-        <h1 style={styles.pageTitle}>Apply for Leave</h1>
+        <h1 style={styles.pageTitle} className="resp-title">Apply for Leave</h1>
       </header>
 
       <div style={styles.mainLayout}>
-        <div style={styles.formCard}>
+        <div style={styles.formCard} className="resp-card">
           <div style={styles.formHeader}>
             <div style={styles.balanceSection}>
               {leaveTypes.map(type => {
@@ -306,7 +315,7 @@ const ApplyLeave = () => {
               )}
             </div>
 
-            <div style={styles.row}>
+            <div style={styles.row} className="resp-row">
               <div style={styles.group}>
                 <label style={styles.label}>From</label>
                 <input type="date" name="startDate" value={formData.startDate} min={minDate} onChange={handleChange} required style={styles.input} />
@@ -317,7 +326,7 @@ const ApplyLeave = () => {
               </div>
             </div>
 
-            <div style={styles.halfDaySection}>
+            <div style={styles.halfDaySection} className="resp-halfday">
               <div style={styles.checkboxWrapper}>
                 <input 
                   type="checkbox" 
@@ -370,7 +379,7 @@ const ApplyLeave = () => {
                 <button type="button" onClick={addAdjustment} style={styles.addBtn}><Plus size={14} /> Add Adjustment</button>
               </div>
               {adjustments.map((adj, index) => (
-                <div key={index} style={styles.adjRow}>
+                <div key={index} style={styles.adjRow} className="resp-adj-row">
                   <input required type="date" value={adj.date} onChange={(e) => updateAdjustment(index, 'date', e.target.value)} style={styles.smallInput} />
                   <select required value={adj.period} onChange={(e) => updateAdjustment(index, 'period', e.target.value)} style={styles.smallInput}>
                     <option value="">-- Period --</option>
@@ -379,13 +388,13 @@ const ApplyLeave = () => {
                     <option value="7th Hour">7th Hour</option>
                   </select>
                   <input required type="text" placeholder="Yr/Sec" value={adj.yearAndSection} onChange={(e) => updateAdjustment(index, 'yearAndSection', e.target.value)} style={styles.smallInput} />
-                  <input required type="text" placeholder="Sub ID" value={adj.adjustedWith} onChange={(e) => updateAdjustment(index, 'adjustedWith', e.target.value)} style={styles.smallInput} />
+                  <input required type="text" placeholder="Emp ID" value={adj.adjustedWith} onChange={(e) => updateAdjustment(index, 'adjustedWith', e.target.value)} style={styles.smallInput} />
                   <button type="button" onClick={() => removeAdjustment(index)} style={styles.delBtn}><Trash2 size={14} /></button>
                 </div>
               ))}
             </div>
 
-            <button type="submit" style={styles.submitBtn}>Submit Request</button>
+            <button type="submit" style={styles.submitBtn} className="resp-submit">Submit Request</button>
           </form>
         </div>
       </div>
@@ -394,16 +403,13 @@ const ApplyLeave = () => {
 };
 
 const styles = {
-  container: { width: '100%', maxWidth: '800px', margin: '0 auto', paddingBottom: '40px' },
-  header: { marginBottom: window.innerWidth <= 768 ? '15px' : '30px', textAlign: 'center' },
-  pageTitle: { fontSize: window.innerWidth <= 768 ? '22px' : '28px', color: '#1e293b', fontWeight: '800', margin: 0 },
-  
-
-
+  container: { width: '100%', maxWidth: '800px', margin: '0 auto', paddingBottom: '40px', padding: '0 15px', boxSizing: 'border-box' },
+  header: { marginBottom: '30px', textAlign: 'center' },
+  pageTitle: { fontSize: '28px', color: '#1e293b', fontWeight: '800', margin: 0 },
   mainLayout: { display: 'flex', justifyContent: 'center' },
   formCard: { 
-    width: '100%', background: 'white', padding: window.innerWidth <= 768 ? '15px' : '30px', borderRadius: '16px', 
-    border: '1px solid #e2e8f0', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' 
+    width: '100%', background: 'white', padding: '30px', borderRadius: '16px', 
+    border: '1px solid #e2e8f0', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', boxSizing: 'border-box'
   },
   formHeader: { marginBottom: '25px' },
   balanceSection: { display: 'flex', flexWrap: 'wrap', gap: '8px' },
@@ -411,62 +417,32 @@ const styles = {
     background: '#f8fafc', padding: '6px 12px', borderRadius: '8px', 
     fontSize: '12px', fontWeight: '700', color: '#334155', border: '1px solid #e2e8f0' 
   },
-
   form: { display: 'flex', flexDirection: 'column', gap: '20px' },
-  specialLeaveGroup: { 
-    background: '#f8fafc', padding: '15px', borderRadius: '12px', border: '1px solid #e2e8f0' 
-  },
+  specialLeaveGroup: { background: '#f8fafc', padding: '15px', borderRadius: '12px', border: '1px solid #e2e8f0' },
   checkboxWrapper: { display: 'flex', alignItems: 'center', gap: '10px' },
   checkbox: { cursor: 'pointer', width: '18px', height: '18px', accentColor: '#F17F08' },
   label: { fontSize: '14px', fontWeight: '600', color: '#1e293b', cursor: 'pointer' },
   labelSmall: { fontSize: '14px', fontWeight: '600', color: '#475569', cursor: 'pointer' },
-  
   specialFields: { marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '15px' },
   uploaderSection: { display: 'flex', flexDirection: 'column', gap: '8px' },
   fieldLabel: { fontSize: '13px', fontWeight: '600', color: '#64748b' },
-
-  row: { display: 'flex', gap: '15px', flexDirection: window.innerWidth <= 768 ? 'column' : 'row' },
+  row: { display: 'flex', gap: '15px', flexDirection: 'row' },
   group: { flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' },
-  input: { 
-    padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0', 
-    outline: 'none', fontSize: '14px', width: '100%', boxSizing: 'border-box' 
-  },
-  
-  halfDaySection: { display: 'flex', alignItems: 'center', gap: '15px', flexDirection: window.innerWidth <= 768 ? 'column' : 'row', alignItems: 'flex-start' },
-  halfDayToggle: { 
-    display: 'flex', gap: '5px', background: '#f1f5f9', padding: '4px', borderRadius: '10px' 
-  },
-  toggleBtn: { 
-    padding: '6px 15px', fontSize: '12px', fontWeight: '700', border: 'none', 
-    borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s' 
-  },
-
-  adjustmentSection: { 
-    background: '#f8fafc', padding: '15px', borderRadius: '12px', border: '1px solid #e2e8f0' 
-  },
+  input: { padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0', outline: 'none', fontSize: '14px', width: '100%', boxSizing: 'border-box' },
+  halfDaySection: { display: 'flex', alignItems: 'center', gap: '15px', flexDirection: 'row' },
+  halfDayToggle: { display: 'flex', gap: '5px', background: '#f1f5f9', padding: '4px', borderRadius: '10px' },
+  toggleBtn: { padding: '6px 15px', fontSize: '12px', fontWeight: '700', border: 'none', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s' },
+  adjustmentSection: { background: '#f8fafc', padding: '15px', borderRadius: '12px', border: '1px solid #e2e8f0' },
   adjHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' },
   adjTitle: { margin: 0, fontSize: '15px', color: '#1e293b', fontWeight: '700' },
-  addBtn: { 
-    background: '#10b981', color: 'white', border: 'none', padding: '8px 12px', 
-    borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '600'
-  },
-  adjRow: { display: 'flex', gap: '10px', marginBottom: '10px', flexDirection: window.innerWidth <= 768 ? 'column' : 'row' },
-  smallInput: { flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' },
-  delBtn: { background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', padding: '10px', cursor: 'pointer' },
-
-  submitBtn: { 
-    padding: '16px', background: '#F17F08', color: 'white', border: 'none', 
-    borderRadius: '12px', fontWeight: '800', fontSize: '16px', 
-    cursor: 'pointer', transition: 'transform 0.2s'
-  },
-
-  dropzone: {
-    border: '2px dashed #cbd5e1', borderRadius: '10px', padding: '20px', 
-    textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s', 
-    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100px'
-  },
+  addBtn: { background: '#10b981', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '600' },
+  adjRow: { display: 'flex', gap: '10px', marginBottom: '10px', flexDirection: 'row' },
+  smallInput: { flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', minWidth: '0' },
+  delBtn: { background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', padding: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  submitBtn: { padding: '16px', background: '#F17F08', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '800', fontSize: '16px', cursor: 'pointer', transition: 'transform 0.2s' },
+  dropzone: { border: '2px dashed #cbd5e1', borderRadius: '10px', padding: '20px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100px' },
   dropzoneContent: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#64748b' },
-  fileSelected: { display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '8px 12px', background: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' },
+  fileSelected: { display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '8px 12px', background: 'white', borderRadius: '8px', border: '1px solid #e2e8f0', boxSizing: 'border-box' },
   fileName: { fontSize: '13px', color: '#1e293b', fontWeight: '500', flex: 1, textAlign: 'left', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
   removeFileBtn: { background: '#f1f5f9', border: 'none', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748b' }
 };

@@ -65,6 +65,21 @@ const HodApprovals = () => {
   return (
     <div style={styles.container}>
 
+      <style>{`
+        .hod-header-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 15px; margin-bottom: 20px; }
+        .hod-search-box { display: flex; align-items: center; gap: 8px; background: #f8fafc; padding: 8px 16px; border-radius: 8px; border: 1px solid #e2e8f0; width: 250px; }
+        .hod-list-item { display: flex; justify-content: space-between; align-items: flex-start; background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; }
+        .hod-item-main { display: flex; gap: 15px; }
+        .hod-action-btns { display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+        
+        @media (max-width: 600px) {
+          .hod-header-row { flex-direction: column; align-items: flex-start; gap: 15px; }
+          .hod-search-box { width: 100%; box-sizing: border-box; }
+          .hod-list-item { flex-direction: column; gap: 20px; }
+          .hod-action-btns { flex-direction: row; width: 100%; justify-content: space-between; gap: 10px; }
+          .hod-action-btns button { flex: 1; }
+        }
+      `}</style>
 
       {/* CUSTOM MODAL OVERLAY */}
       {modal.isOpen && (
@@ -105,13 +120,13 @@ const HodApprovals = () => {
       </header>
 
       <div style={styles.card}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '15px', marginBottom: '20px' }}>
+        <div className="hod-header-row">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <FileCheck size={22} color={kmitOrange} />
             <h3 style={styles.cardTitle}>Awaiting Your Action</h3>
           </div>
           
-          <div style={styles.searchBox}>
+          <div className="hod-search-box">
             <Search size={18} color="#94a3b8" />
             <input 
               type="text" 
@@ -139,10 +154,10 @@ const HodApprovals = () => {
                 return nameMatch || idMatch;
               })
               .map(req => (
-              <div key={req._id} style={styles.listItem}>
-                <div style={styles.itemMain}>
+              <div key={req._id} className="hod-list-item">
+                <div className="hod-item-main">
                   <div style={styles.avatar}>{req.employeeName ? req.employeeName[0] : '?'}</div>
-                  <div>
+                  <div style={{ wordBreak: 'break-word', minWidth: 0, flex: 1 }}>
                     <h4 style={styles.empName}>{req.employeeName} <span style={styles.empId}>(ID: {req.employeeId})</span></h4>
                     <div style={styles.leaveMeta}>
                       <span style={styles.badge}>
@@ -163,10 +178,37 @@ const HodApprovals = () => {
                         </a>
                       </div>
                     )}
+                    
+                    {/* Display Class Adjustments */}
+                    {req.adjustments && req.adjustments.length > 0 && (
+                      <div style={{ marginTop: '15px', background: 'white', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                        <h5 style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Class Adjustments ({req.adjustments.length})</h5>
+                        <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
+                          <thead>
+                            <tr style={{ background: '#f8fafc', color: '#64748b', textAlign: 'left' }}>
+                              <th style={{ padding: '6px', borderBottom: '1px solid #e2e8f0' }}>Date</th>
+                              <th style={{ padding: '6px', borderBottom: '1px solid #e2e8f0' }}>Period</th>
+                              <th style={{ padding: '6px', borderBottom: '1px solid #e2e8f0' }}>Class</th>
+                              <th style={{ padding: '6px', borderBottom: '1px solid #e2e8f0' }}>Substitute (Emp ID)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {req.adjustments.map((adj, i) => (
+                              <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                <td style={{ padding: '6px' }}>{formatDate(adj.date)}</td>
+                                <td style={{ padding: '6px' }}>{adj.period}</td>
+                                <td style={{ padding: '6px' }}>{adj.yearAndSection}</td>
+                                <td style={{ padding: '6px', fontWeight: '600', color: '#F17F08' }}>{adj.adjustedWith}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div style={styles.actionButtons}>
+                <div className="hod-action-btns">
                   <button onClick={() => openModal(req._id, 'Approved')} style={styles.btnApprove}>
                     <CheckCircle size={18} /> Approve
                   </button>
@@ -210,7 +252,7 @@ const styles = {
   empName: { margin: '0 0 5px 0', fontSize: '16px', color: '#1e293b', fontWeight: '700' },
   empId: { color: '#64748b', fontSize: '13px', fontWeight: 'normal' },
   leaveMeta: { display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px', color: '#475569', marginBottom: '8px' },
-  badge: { background: '#eff6ff', color: '#3b82f6', padding: '4px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: '700' },
+  badge: { background: '#eff6ff', color: '#3b82f6', padding: '4px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap', flexShrink: 0 },
   reasonText: { margin: 0, fontSize: '14px', color: '#334155' },
   actionButtons: { display: 'flex', flexDirection: 'column', gap: '10px', flexShrink: 0 },
   btnApprove: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#16a34a', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '14px' },

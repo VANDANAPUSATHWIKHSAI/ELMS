@@ -6,14 +6,37 @@ import {
   FileCheck, ClipboardList, Users, Settings, Globe, MessageSquare, Mail,
   Clock, BarChart2, Inbox
 } from 'lucide-react';
+import { apiFetch } from '../utils/api';
 
 const Sidebar = ({ isOpen, isMobile, onToggle, onClose }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth(); // Added 'user' here
+  const { user, logout } = useAuth();
+  const [unreadCount, setUnreadCount] = React.useState(0);
   const kmitOrange = "#F17F08";
 
   const handleLogout = () => { logout(); navigate("/"); };
+
+  React.useEffect(() => {
+    const fetchUnreadCount = async () => {
+      try {
+        const res = await apiFetch('http://localhost:5000/api/messages/unread-count');
+        if (res.ok) {
+          const data = await res.json();
+          setUnreadCount(data.count || 0);
+        }
+      } catch (err) { console.error("Error fetching unread count", err); }
+    };
+
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 5000); // 5 sec
+    window.addEventListener('messagesUpdated', fetchUnreadCount);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('messagesUpdated', fetchUnreadCount);
+    };
+  }, [location.pathname]); // Refresh on navigation too
 
   // 1. Base items everyone sees
   const baseItems = [
@@ -25,9 +48,6 @@ const Sidebar = ({ isOpen, isMobile, onToggle, onClose }) => {
     { id: 'view-leaves', label: 'View Leaves', icon: <ClipboardList size={22} />, path: '/view-leaves-ledger' },
     { id: 'history', label: 'History', icon: <Clock size={22} />, path: '/leave-history' },
     { id: 'adjustments', label: 'Adjustments', icon: <Shuffle size={22} />, path: '/adjustments' },
-    { id: 'contact', label: 'Contact', icon: <MessageSquare size={22} />, path: '/contact' },
-    { id: 'inbox', label: 'Inbox', icon: <Inbox size={22} />, path: '/inbox' },
-    { id: 'settings', label: 'Settings', icon: <Settings size={22} />, path: '/settings' },
   ];
 
   // 2. HoD Items
@@ -56,7 +76,11 @@ const Sidebar = ({ isOpen, isMobile, onToggle, onClose }) => {
   // 4. Combine menus based on role
   let menuItems = baseItems;
   if (user?.role === 'HoD') {
-    menuItems = [...baseItems, ...hodItems];
+    menuItems = [
+      ...baseItems, 
+      ...hodItems,
+      { id: 'settings', label: 'Settings', icon: <Settings size={22} />, path: '/settings' }
+    ];
   } else if (user?.role === 'Admin') {
     menuItems = adminItems; // Admins get their own specific menu
   } else if (user?.role === 'Principal') {
@@ -67,6 +91,14 @@ const Sidebar = ({ isOpen, isMobile, onToggle, onClose }) => {
       { id: 'principal-analytics', label: 'Trends & Analytics', icon: <BarChart2 size={22} />, path: '/principal/analytics' },
       { id: 'principal-reports', label: 'Reports', icon: <Globe size={22} />, path: '/principal/reports' },
       { id: 'principal-messages', label: 'Messages', icon: <Mail size={22} />, path: '/principal/messages' },
+      { id: 'settings', label: 'Settings', icon: <Settings size={22} />, path: '/settings' },
+    ];
+  } else {
+    // Employee
+    menuItems = [
+      ...baseItems,
+      { id: 'contact', label: 'Contact', icon: <MessageSquare size={22} />, path: '/contact' },
+      { id: 'inbox', label: 'Inbox', icon: <Inbox size={22} />, path: '/inbox' },
       { id: 'settings', label: 'Settings', icon: <Settings size={22} />, path: '/settings' },
     ];
   }
@@ -152,8 +184,11 @@ const Sidebar = ({ isOpen, isMobile, onToggle, onClose }) => {
                   }}
                   title={!isOpen ? item.label : ""} 
                 >
-                  <div style={{width: '24px', display: 'flex', justifyContent: 'center', alignItems: 'center'}}>
+                  <div style={{width: '24px', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative'}}>
                     {item.icon}
+                    {unreadCount > 0 && (item.id === 'inbox' || item.id === 'hod-messages' || item.id === 'admin-messages' || item.id === 'principal-messages') && (
+                      <div style={styles.badgeCount}>{unreadCount}</div>
+                    )}
                   </div>
                   
                   <span style={{
@@ -268,6 +303,23 @@ const styles = {
     alignItems: 'center', justifyContent: 'center', border: 'none',
     boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
     zIndex: 900, cursor: 'pointer'
+  },
+  badgeCount: {
+    position: 'absolute',
+    top: '-8px',
+    right: '-8px',
+    backgroundColor: '#ef4444',
+    color: 'white',
+    fontSize: '10px',
+    fontWeight: 'bold',
+    borderRadius: '50%',
+    width: '16px',
+    height: '16px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    border: '2px solid var(--bg-sidebar)',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
   }
 };
 
