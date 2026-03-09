@@ -229,6 +229,7 @@ const Reports = () => {
                         <th style={styles.th}>Leave Type</th>
                         <th style={styles.th}>Duration</th>
                         <th style={styles.th}>Status</th>
+                        <th style={styles.th}>Action By</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -245,17 +246,17 @@ const Reports = () => {
                              {formatDate(req.startDate)} to {formatDate(req.endDate)}
                           </td>
                           <td style={styles.td}>
-                            <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
-                              {getStatusBadge(req.status)}
-                              {req.status !== 'Pending' && (
-                                <span style={{fontSize: '11px', color: '#64748b', fontStyle: 'italic'}}>
-                                  by { (req.status === 'Approved' || req.status === 'Accepted' || req.status === 'Auto-Approved')
-                                    ? (req.principalApproval?.status === 'Approved' ? req.principalApproval.actionBy : req.hodApproval?.actionBy)
-                                    : (req.principalApproval?.status === 'Rejected' ? req.principalApproval.actionBy : req.hodApproval?.actionBy)
-                                  }
-                                </span>
-                              )}
-                            </div>
+                            {getStatusBadge(req.status)}
+                          </td>
+                          <td style={styles.td}>
+                            {req.status !== 'Pending' && (
+                              <span style={{ fontSize: '12px', color: '#475569', fontWeight: '600', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '4px 10px', borderRadius: '12px', display: 'inline-block', whiteSpace: 'nowrap' }}>
+                                { (req.status === 'Approved' || req.status === 'Accepted' || req.status === 'Auto-Approved')
+                                  ? (req.principalApproval?.status === 'Approved' ? `by ${req.principalApproval.actionBy}` : (req.hodApproval?.actionBy ? `by ${req.hodApproval?.actionBy}` : ''))
+                                  : (req.principalApproval?.status === 'Rejected' ? `by ${req.principalApproval.actionBy}` : (req.hodApproval?.actionBy ? `by ${req.hodApproval?.actionBy}` : ''))
+                                }
+                              </span>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -308,7 +309,7 @@ const styles = {
   th: { padding: '14px 20px', color: '#64748b', fontWeight: '600' },
   tr: { borderBottom: '1px solid #f1f5f9' },
   td: { padding: '14px 20px', color: '#334155' },
-  typeBadge: { background: '#eff6ff', color: '#3b82f6', padding: '4px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: '700' },
+  typeBadge: { background: '#eff6ff', color: '#3b82f6', padding: '4px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap', width: 'max-content', flexShrink: 0 },
 };
 
 export default Reports;

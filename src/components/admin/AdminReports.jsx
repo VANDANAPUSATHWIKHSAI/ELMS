@@ -71,7 +71,7 @@ const AdminReports = () => {
 
   const formatDate = (dateString) => new Date(dateString).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
-  const StatusBadge = ({ status, actionBy }) => {
+  const StatusBadge = ({ status }) => {
     let color = '#f59e0b';
     let icon = <Clock size={14} />;
     
@@ -79,12 +79,9 @@ const AdminReports = () => {
     else if (status === 'Rejected') { color = '#ef4444'; icon = <XCircle size={14} />; }
 
     return (
-      <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: color, fontWeight: 'bold', fontSize: '12px', padding: '4px 8px', borderRadius: '12px', background: `${color}20`, width: 'max-content' }}>
-          {icon} {status}
-        </span>
-        {actionBy && <span style={{fontSize: '11px', color: '#64748b', fontStyle: 'italic'}}>by {actionBy}</span>}
-      </div>
+      <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: color, fontWeight: 'bold', fontSize: '12px', padding: '4px 8px', borderRadius: '12px', background: `${color}20`, width: 'max-content' }}>
+        {icon} {status}
+      </span>
     );
   };
 
@@ -192,6 +189,7 @@ const AdminReports = () => {
                   <th style={styles.th}>Dates</th>
                   <th style={styles.th}>Reason</th>
                   <th style={styles.th}>Status</th>
+                  <th style={styles.th}>Action By</th>
                 </tr>
               </thead>
               <tbody>
@@ -213,16 +211,18 @@ const AdminReports = () => {
                        </span>
                     </td>
                     <td style={styles.td}>
-                      <StatusBadge 
-                        status={leave.status} 
-                        actionBy={
+                      <StatusBadge status={leave.status} />
+                    </td>
+                    <td style={styles.td}>
+                      <span style={{ fontSize: '12px', color: '#475569', fontWeight: '600', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '4px 10px', borderRadius: '12px', display: 'inline-block', whiteSpace: 'nowrap' }}>
+                        {
                           (leave.status === 'Approved' || leave.status === 'Auto-Approved')
-                            ? (leave.principalApproval?.status === 'Approved' ? leave.principalApproval.actionBy : leave.hodApproval?.actionBy)
+                            ? (leave.principalApproval?.status === 'Approved' ? `by ${leave.principalApproval.actionBy}` : (leave.hodApproval?.actionBy ? `by ${leave.hodApproval?.actionBy}` : ''))
                             : (leave.status === 'Rejected'
-                                ? (leave.principalApproval?.status === 'Rejected' ? leave.principalApproval.actionBy : leave.hodApproval?.actionBy)
-                                : null)
-                        } 
-                      />
+                                ? (leave.principalApproval?.status === 'Rejected' ? `by ${leave.principalApproval.actionBy}` : (leave.hodApproval?.actionBy ? `by ${leave.hodApproval?.actionBy}` : ''))
+                                : '-')
+                        }
+                      </span>
                     </td>
                   </tr>
                 ))}
@@ -267,7 +267,7 @@ const styles = {
   th: { padding: '14px 20px', color: '#475569', fontWeight: '700', position: 'sticky', top: 0, backgroundColor: '#f8fafc', zIndex: 1 },
   tr: { borderBottom: '1px solid #f1f5f9', ':hover': { backgroundColor: '#f8fafc' } },
   td: { padding: '14px 20px', color: '#334155' },
-  typeBadge: { background: '#eff6ff', color: '#3b82f6', padding: '4px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: '700' },
+  typeBadge: { background: '#eff6ff', color: '#3b82f6', padding: '4px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap', width: 'max-content', flexShrink: 0 },
 };
 
 export default AdminReports;

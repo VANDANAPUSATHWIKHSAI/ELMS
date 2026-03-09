@@ -39,18 +39,13 @@ const PrincipalReports = () => {
     fetchReportsData();
   }, [activeTab]);
 
-  const getStatusBadge = (status, actionBy) => {
+  const getStatusBadge = (status) => {
     let badgeContent;
     if (['Approved', 'Accepted', 'Auto-Approved'].includes(status)) badgeContent = <span style={{...styles.badge, background: '#dcfce7', color: '#16a34a'}}><CheckCircle size={14}/> {status}</span>;
     else if (status === 'Rejected') badgeContent = <span style={{...styles.badge, background: '#fee2e2', color: '#dc2626'}}><XCircle size={14}/> {status}</span>;
     else badgeContent = <span style={{...styles.badge, background: '#fef3c7', color: '#d97706'}}><Clock size={14}/> {status}</span>;
 
-    return (
-      <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
-        {badgeContent}
-        {actionBy && <span style={{fontSize: '11px', color: '#64748b', fontStyle: 'italic'}}>by {actionBy}</span>}
-      </div>
-    );
+    return badgeContent;
   };
 
   const formatDate = (dateString) => new Date(dateString).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -174,6 +169,7 @@ const PrincipalReports = () => {
                       <th style={styles.th}>Leave Details</th>
                       <th style={styles.th}>Duration</th>
                       <th style={styles.th}>Status</th>
+                      <th style={styles.th}>Action By</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -193,14 +189,18 @@ const PrincipalReports = () => {
                           {formatDate(req.startDate)} <br/><span style={{color: '#94a3b8', fontSize: '11px'}}>to</span><br/> {formatDate(req.endDate)}
                         </td>
                         <td style={styles.td}>
-                          {getStatusBadge(
-                            req.status, 
-                            (req.status === 'Approved' || req.status === 'Accepted' || req.status === 'Auto-Approved')
-                              ? (req.principalApproval?.status === 'Approved' ? req.principalApproval.actionBy : req.hodApproval?.actionBy)
-                              : (req.status === 'Rejected' 
-                                  ? (req.principalApproval?.status === 'Rejected' ? req.principalApproval.actionBy : req.hodApproval?.actionBy)
-                                  : null)
-                          )}
+                          {getStatusBadge(req.status)}
+                        </td>
+                        <td style={styles.td}>
+                          <span style={{ fontSize: '12px', color: '#475569', fontWeight: '600', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '4px 10px', borderRadius: '12px', display: 'inline-block', whiteSpace: 'nowrap' }}>
+                            {
+                              (req.status === 'Approved' || req.status === 'Accepted' || req.status === 'Auto-Approved')
+                                ? ((req.principalApproval?.status === 'Approved' ? req.principalApproval.actionBy : req.hodApproval?.actionBy) ? `by ${(req.principalApproval?.status === 'Approved' ? req.principalApproval.actionBy : req.hodApproval?.actionBy)}` : '')
+                                : (req.status === 'Rejected' 
+                                    ? ((req.principalApproval?.status === 'Rejected' ? req.principalApproval.actionBy : req.hodApproval?.actionBy) ? `by ${(req.principalApproval?.status === 'Rejected' ? req.principalApproval.actionBy : req.hodApproval?.actionBy)}` : '')
+                                    : '-')
+                            }
+                          </span>
                         </td>
                       </tr>
                     ))}

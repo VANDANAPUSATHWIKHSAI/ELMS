@@ -179,6 +179,13 @@ const AdminEmployees = () => {
       delete payload.password;
     }
 
+    if (!payload.aicteId || payload.aicteId.trim() === '') {
+      payload.aicteId = 'NA';
+    }
+    if (!payload.jntuUid || payload.jntuUid.trim() === '') {
+      payload.jntuUid = 'NA';
+    }
+
     setIsSubmitting(true);
     try {
       const url = editMode 
@@ -390,7 +397,11 @@ const AdminEmployees = () => {
                 
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>Designation *</label>
-                  <input required name="designation" value={formData.designation} onChange={handleInputChange} style={styles.input} />
+                  <select required name="designation" value={formData.designation} onChange={handleInputChange} style={styles.input}>
+                    <option value="">Select Designation</option>
+                    <option value="Assistant Professor">Assistant Professor</option>
+                    <option value="Professor">Professor</option>
+                  </select>
                 </div>
                 
                 <div style={styles.inputGroup}>
