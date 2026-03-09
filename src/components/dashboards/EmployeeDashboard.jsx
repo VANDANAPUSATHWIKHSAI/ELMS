@@ -14,6 +14,7 @@ const EmployeeDashboard = () => {
   const [holidays, setHolidays] = useState([]);
   const [leaves, setLeaves] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null); // Clicked date on calendar
+  const [selectedDateInfo, setSelectedDateInfo] = useState(""); // Info to show on click
   const kmitOrange = "#F17F08";
 
   // --- 1. FETCH DATA (Real-time balance & Personal History) ---
@@ -311,8 +312,15 @@ const EmployeeDashboard = () => {
                       border: `1px solid ${borderColor}`,
                     }}
                     title={titleParts.join(' | ')}
-                    onMouseDown={() => setSelectedDate(dateKey)}
-                    onMouseUp={() => setTimeout(() => setSelectedDate(null), 300)}
+                    onMouseDown={() => {
+                      if (selectedDate === dateKey) {
+                        setSelectedDate(null);
+                        setSelectedDateInfo("");
+                      } else {
+                        setSelectedDate(dateKey);
+                        setSelectedDateInfo(titleParts.length > 0 ? titleParts.join(' | ') : 'No special events');
+                      }
+                    }}
                     className="date-cell"
                   >
                     {dayNum}
@@ -320,6 +328,22 @@ const EmployeeDashboard = () => {
                 );
               })}
             </div>
+            
+            {selectedDateInfo && (
+              <div style={{
+                marginTop: '15px', 
+                padding: '12px', 
+                background: '#f8fafc', 
+                borderRadius: '8px', 
+                border: '1px solid #e2e8f0', 
+                color: '#334155', 
+                fontSize: '14px', 
+                textAlign: 'center',
+                fontWeight: '500'
+              }}>
+                <strong style={{color: kmitOrange}}>Info: </strong> {selectedDateInfo}
+              </div>
+            )}
           </div>
         </div>
     </div>

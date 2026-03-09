@@ -571,6 +571,10 @@ async function recalculateFutureLeaves(employeeId, rejectedLeaveDate, rejectedLe
                     clDeducted -= upgradeClToCcl;
                     
                     ledgerEntries.push({
+                        employeeId, transactionType: 'Debit', leaveType: 'CCL', amount: -upgradeClToCcl,
+                        reason: `Balance Re-evaluation (Upgraded from CL) #${leave._id}`, referenceId: leave._id, balanceAfter: user.leaveBalance.ccl
+                    });
+                    ledgerEntries.push({
                         employeeId, transactionType: 'Credit', leaveType: 'CL', amount: upgradeClToCcl,
                         reason: `Balance Re-evaluation (Reverted CL) #${leave._id}`, referenceId: leave._id, balanceAfter: user.leaveBalance.cl
                     });
@@ -604,7 +608,7 @@ async function recalculateFutureLeaves(employeeId, rejectedLeaveDate, rejectedLe
                 balanceModified = true;
                 
                 // Update the visual leaveType string if it was mixed
-                if (['Standard', 'CL'].includes(leave.leaveType.split('+')[0].trim()) || leave.leaveType.includes('LOP')) {
+                if (['Standard', 'CL', 'CCL'].includes(leave.leaveType.split('+')[0].trim()) || leave.leaveType.includes('LOP')) {
                     const parts = [];
                     if (getVal('al') > 0) parts.push('AL');
                     if (getVal('ccl') > 0) parts.push('CCL');
@@ -860,6 +864,7 @@ async function recalculatePendingLeaves(employeeId) {
     const user = await User.findOne({ employeeId });
     if (!user) return;
     
+    // 1. Process Pending Leaves (Progressively deducts balances)
     const pendingLeaves = await LeaveRequest.find({ employeeId, status: 'Pending' }).sort({ appliedOn: 1 });
     let simulatedUser = { employeeId, leaveBalance: JSON.parse(JSON.stringify(user.leaveBalance)), designation: user.designation, isPhdRegistered: user.isPhdRegistered };
     
@@ -886,6 +891,41 @@ async function recalculatePendingLeaves(employeeId) {
                 simulatedUser.leaveBalance = balance;
              } catch (e) {
                 console.error("Cascade Error:", e.message);
+             }
+        }
+    }
+
+    // 2. Process Rejected Leaves (Independently, without draining simulation balance)
+    // This ensures Principal sees accurate projected leave string types for HOD-rejected leaves
+    const thresholdDate = new Date();
+    thresholdDate.setDate(thresholdDate.getDate() - 60); // Check last 60 days
+    const rejectedLeaves = await LeaveRequest.find({ employeeId, status: 'Rejected', appliedOn: { $gte: thresholdDate } });
+    
+    for (const leave of rejectedLeaves) {
+        let daysRequired = leave.totalDeductionDays || 0;
+        if (daysRequired === 0 && leave.deductionBreakdown && (leave.deductionBreakdown.size > 0 || Object.keys(leave.deductionBreakdown).length > 0)) {
+             const entries = leave.deductionBreakdown instanceof Map ? leave.deductionBreakdown.entries() : Object.entries(leave.deductionBreakdown);
+             for (const [key, val] of entries) {
+                 if (key !== '$init') daysRequired += val;
+             }
+        }
+        
+        let baseType = (leave.originalLeaveType || leave.leaveType).split('+')[0].trim();
+        if (baseType === 'CCL' || baseType === 'Leave') baseType = 'Standard';
+
+        if (daysRequired > 0 || (baseType === 'OD' && leave.isHalfDay)) {
+             try {
+                // Determine what it WOULD take from the current real balance
+                let independentSimUser = { employeeId, leaveBalance: JSON.parse(JSON.stringify(user.leaveBalance)), designation: user.designation, isPhdRegistered: user.isPhdRegistered };
+                const { breakdown, finalLeaveType } = await processLeaveDeduction(independentSimUser, daysRequired, baseType, leave.documentUrl, '', null, true);
+                
+                leave.deductionBreakdown = breakdown;
+                leave.leaveType = finalLeaveType;
+                leave.originalLeaveType = baseType;
+                leave.totalDeductionDays = daysRequired;
+                await leave.save();
+             } catch (e) {
+                console.error("Rejected cascade error:", e.message);
              }
         }
     }
@@ -1620,6 +1660,8 @@ app.post('/api/leave/action', authMiddleware, roleMiddleware(['HoD', 'Principal'
           await user.save();
           if (ledgerEntries.length > 0) await LeaveLedger.insertMany(ledgerEntries);
           await unbridgeAdjacentHolidays(leave.employeeId, leave.startDate, leave.endDate, leave._id);
+          // Recalculate future leaves that might have been forced into LOP because this leave previously drained balances
+          await recalculateFutureLeaves(leave.employeeId, leave.appliedOn, leave._id);
         }
     }
     
@@ -1726,14 +1768,19 @@ app.get('/api/principal/today-leaves', authMiddleware, roleMiddleware(['Principa
 // P3. GET GLOBAL PENDING FOR RATIFICATION
 app.get('/api/principal/pending', authMiddleware, roleMiddleware(['Principal', 'Admin']), async (req, res) => {
   try {
-      const hods = await User.find({ role: 'HoD' }).select('employeeId');
-      const hodIds = hods.map(h => h.employeeId);
+      // Fetch leaves that are either:
+      // 1. Approved by HoD but waiting for Principal (e.g., OD or AL leaves)
+      // 2. Direct requests from HoDs
+      // 3. Or just generally pending ratification
       
-      const leaves = await LeaveRequest.find({ status: 'Pending', employeeId: { $in: hodIds } }).sort({ appliedOn: 1 });
-      const userIds = leaves.map(l => l.employeeId);
-     const users = await User.find({ employeeId: { $in: userIds } });
-     
-     const leavesWithNames = (await Promise.all(leaves.map(async (leave) => {
+      const leaves = await LeaveRequest.find({
+        $or: [
+            { 'hodApproval.status': 'Approved', 'principalApproval.status': 'Pending' },
+            { status: 'Pending' }
+        ]
+      }).sort({ appliedOn: 1 });
+      
+      const leavesWithNames = (await Promise.all(leaves.map(async (leave) => {
        const user = await User.findOne({ employeeId: leave.employeeId });
        if (!user) return null;
        return {
@@ -1741,8 +1788,9 @@ app.get('/api/principal/pending', authMiddleware, roleMiddleware(['Principal', '
          employeeName: `${user.firstName} ${user.lastName}`,
          department: user.department || 'Unknown'
        };
-     }))).filter(l => l !== null);
-     res.json(leavesWithNames);
+      }))).filter(l => l !== null);
+      
+      res.json(leavesWithNames);
    } catch(err) { res.status(500).json({ message: "Server error" }) }
  });
  
