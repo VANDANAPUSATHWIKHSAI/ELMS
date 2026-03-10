@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Clock, CheckCircle, ArrowRight } from 'lucide-react';
+import CalendarWidget from './CalendarWidget';
 
 const HodDashboard = () => {
   const { user } = useAuth();
@@ -40,7 +41,7 @@ const HodDashboard = () => {
   return (
     <div style={styles.container}>
       <header style={styles.header}>
-        <h1 style={styles.pageTitle}>Department Dashboard</h1>
+        <h1 style={styles.pageTitle}>HOD Dashboard</h1>
         <p style={styles.subtitle}>Overview for <strong style={{color: kmitOrange}}>{user?.department}</strong> Department</p>
       </header>
 
@@ -88,6 +89,9 @@ const HodDashboard = () => {
              </div>
            )}
         </div>
+
+        {/* PERSONAL CALENDAR CARD */}
+        <CalendarWidget />
       </div>
     </div>
   );

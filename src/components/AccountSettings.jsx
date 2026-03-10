@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { apiFetch } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
-import { Settings, Lock, CheckCircle, XCircle, Eye, EyeOff } from 'lucide-react';
+import { Lock, CheckCircle, XCircle, Eye, EyeOff } from 'lucide-react';
 
 const AccountSettings = () => {
   const { user } = useAuth();
@@ -81,10 +81,10 @@ const AccountSettings = () => {
         <p style={{color: '#64748b', margin: '4px 0 0 0', textAlign: isMobile ? 'center' : 'left', fontSize: isMobile ? '13px' : '14px'}}>Manage your administrator account and system preferences.</p>
       </div>
 
-      <div style={{...styles.grid, gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(350px, 1fr))'}}>
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: '40px' }}>
         
         {/* CHANGE PASSWORD CARD */}
-        <div style={{...styles.card, padding: isMobile ? '16px' : '24px'}}>
+        <div style={{...styles.card, padding: isMobile ? '16px' : '24px', width: '100%', maxWidth: '500px'}}>
           <div style={styles.cardHeader}>
             <Lock size={20} color="#1e293b" />
             <h3 style={styles.cardTitle}>Change Password</h3>
@@ -151,21 +151,7 @@ const AccountSettings = () => {
           </form>
         </div>
 
-        {/* SYSTEM CONFIGURATION CARD (Mock for now) */}
-        <div style={{...styles.card, padding: isMobile ? '16px' : '24px'}}>
-          <div style={styles.cardHeader}>
-            <Settings size={20} color="#1e293b" />
-            <h3 style={styles.cardTitle}>System Configuration</h3>
-          </div>
-          <div style={{color: '#64748b', fontSize: '14px', lineHeight: '1.6'}}>
-            <p><strong>Current Academic Year:</strong> 2026-2027</p>
-            <p><strong>Allowed CL per Year:</strong> 15</p>
-            <p><strong>Allowed AL per Year:</strong> 10</p>
-            <p style={{marginTop: '20px', fontStyle: 'italic', fontSize: '12px'}}>
-              Global system configuration settings will be editable in a future update. For now, they are read-only to prevent workflow disruption.
-            </p>
-          </div>
-        </div>
+
 
       </div>
     </div>

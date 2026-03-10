@@ -252,8 +252,8 @@ const Reports = () => {
                             {req.status !== 'Pending' && (
                               <span style={{ fontSize: '12px', color: '#475569', fontWeight: '600', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '4px 10px', borderRadius: '12px', display: 'inline-block', whiteSpace: 'nowrap' }}>
                                 { (req.status === 'Approved' || req.status === 'Accepted' || req.status === 'Auto-Approved')
-                                  ? (req.principalApproval?.status === 'Approved' ? `by ${req.principalApproval.actionBy}` : (req.hodApproval?.actionBy ? `by ${req.hodApproval?.actionBy}` : ''))
-                                  : (req.principalApproval?.status === 'Rejected' ? `by ${req.principalApproval.actionBy}` : (req.hodApproval?.actionBy ? `by ${req.hodApproval?.actionBy}` : ''))
+                                  ? (req.principalApproval?.status === 'Approved' ? `by ${req.principalApproval.actionBy === 'Principal' ? 'Dr. B.L. Maheswari' : req.principalApproval.actionBy}` : (req.hodApproval?.actionBy ? `by ${req.hodApproval?.actionBy}` : ''))
+                                  : (req.principalApproval?.status === 'Rejected' ? `by ${req.principalApproval.actionBy === 'Principal' ? 'Dr. B.L. Maheswari' : req.principalApproval.actionBy}` : (req.hodApproval?.actionBy ? `by ${req.hodApproval?.actionBy}` : ''))
                                 }
                               </span>
                             )}

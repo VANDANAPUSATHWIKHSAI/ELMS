@@ -217,9 +217,9 @@ const AdminReports = () => {
                       <span style={{ fontSize: '12px', color: '#475569', fontWeight: '600', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '4px 10px', borderRadius: '12px', display: 'inline-block', whiteSpace: 'nowrap' }}>
                         {
                           (leave.status === 'Approved' || leave.status === 'Auto-Approved')
-                            ? (leave.principalApproval?.status === 'Approved' ? `by ${leave.principalApproval.actionBy}` : (leave.hodApproval?.actionBy ? `by ${leave.hodApproval?.actionBy}` : ''))
+                            ? (leave.principalApproval?.status === 'Approved' ? `by ${leave.principalApproval.actionBy === 'Principal' ? 'Dr. B.L. Maheswari' : leave.principalApproval.actionBy}` : (leave.hodApproval?.actionBy ? `by ${leave.hodApproval?.actionBy}` : ''))
                             : (leave.status === 'Rejected'
-                                ? (leave.principalApproval?.status === 'Rejected' ? `by ${leave.principalApproval.actionBy}` : (leave.hodApproval?.actionBy ? `by ${leave.hodApproval?.actionBy}` : ''))
+                                ? (leave.principalApproval?.status === 'Rejected' ? `by ${leave.principalApproval.actionBy === 'Principal' ? 'Dr. B.L. Maheswari' : leave.principalApproval.actionBy}` : (leave.hodApproval?.actionBy ? `by ${leave.hodApproval?.actionBy}` : ''))
                                 : '-')
                         }
                       </span>

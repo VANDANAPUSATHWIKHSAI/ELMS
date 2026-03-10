@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Users, Clock, Building, CheckCircle, ArrowRight, TrendingUp, Percent } from 'lucide-react';
+import CalendarWidget from './CalendarWidget';
 
 const PrincipalDashboard = () => {
   const { user } = useAuth();
@@ -117,8 +118,11 @@ const PrincipalDashboard = () => {
                    </div>
                  ))}
                </div>
-             )}
+              )}
           </div>
+          
+          {/* PERSONAL CALENDAR CARD */}
+          <CalendarWidget />
         </div>
     </div>
   );
