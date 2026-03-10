@@ -179,6 +179,22 @@ const EmployeeDashboard = () => {
                 <button onClick={nextMonth} style={styles.navBtn}><ChevronRight size={18}/></button>
               </div>
             </div>
+
+            {/* COLOR LEGEND */}
+            <div style={{ display: 'flex', gap: '15px', marginBottom: '15px', fontSize: '12px', fontWeight: '600', color: '#64748b', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#FFEDD5', border: '1px solid #FDBA74' }}></div>
+                <span>Today</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#FEE2E2', border: '1px solid #FCA5A5' }}></div>
+                <span>Leave</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#DCFCE7', border: '1px solid #86EFAC' }}></div>
+                <span>Holiday / Sunday</span>
+              </div>
+            </div>
             
             <div style={styles.calendarGrid}>
               {days.map(day => <div key={day} style={styles.dayHeader}>{day}</div>)}
@@ -270,18 +286,18 @@ const EmployeeDashboard = () => {
 
                 // Priority Logic: Today > Holiday > Leave
                 if (isSelected || isToday) {
-                  bgColor = '#FFF7ED'; 
-                  textColor = '#C2410C'; 
+                  bgColor = '#FFEDD5'; // Intermediate orange for Today
+                  textColor = '#9A3412'; 
                   borderColor = '#FDBA74'; 
                 } else if (isSandwich) {
-                  bgColor = '#FEF2F2'; // Red (Sandwiched)
-                  textColor = '#DC2626'; 
+                  bgColor = '#FEE2E2'; // Red (Sandwiched)
+                  textColor = '#991B1B'; 
                 } else if (holidayType) {
-                  bgColor = '#F0FDF4'; // Green (Refunded/Standard Holiday)
-                  textColor = '#16A34A'; 
+                  bgColor = '#DCFCE7'; // Intermediate Green (Holiday)
+                  textColor = '#166534'; 
                 } else if (isLeaveDay) {
-                  bgColor = '#FEF2F2'; // Red (Standard Leave)
-                  textColor = '#DC2626'; 
+                  bgColor = '#FEE2E2'; // Intermediate Red/Pink (Leave)
+                  textColor = '#991B1B'; 
                 }
 
                 const holidayInfo = holidays.find(h => {

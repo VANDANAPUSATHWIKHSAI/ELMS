@@ -211,8 +211,8 @@ const Profile = () => {
             <ProfileField label="Aadhaar" name="aadhaar" value={formData.aadhaar} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
             <ProfileField label="PAN" name="pan" value={formData.pan} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
             
-            <ProfileField label="JNTU UID" name="jntuUid" value={formData.jntuUid} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
-            <ProfileField label="AICTE ID" name="aicteId" value={formData.aicteId} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
+            <ProfileField label="JNTU UID" name="jntuUid" value={formData.jntuUid} isReadOnly={false} isEditing={isEditing} onChange={handleInputChange} />
+            <ProfileField label="AICTE ID" name="aicteId" value={formData.aicteId} isReadOnly={false} isEditing={isEditing} onChange={handleInputChange} />
             
             <div style={{gridColumn: window.innerWidth <= 768 ? 'span 1' : 'span 2'}}>
               <ProfileField label="Address" name="address" value={formData.address} isReadOnly={false} isEditing={isEditing} onChange={handleInputChange} />
