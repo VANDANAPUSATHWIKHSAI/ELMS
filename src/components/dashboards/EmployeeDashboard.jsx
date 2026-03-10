@@ -188,7 +188,11 @@ const EmployeeDashboard = () => {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#FEE2E2', border: '1px solid #FCA5A5' }}></div>
-                <span>Leave</span>
+                <span>Approved Leave</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#FEF3C7', border: '1px solid #FCD34D' }}></div>
+                <span>Pending Leave</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#DCFCE7', border: '1px solid #86EFAC' }}></div>
@@ -244,6 +248,19 @@ const EmployeeDashboard = () => {
                   });
                 };
 
+                const getPendingLeave = (date) => {
+                  const d = new Date(date);
+                  d.setHours(0,0,0,0);
+                  return leaves.find(l => {
+                    if (l.status !== 'Pending') return false;
+                    const sDate = new Date(l.startDate);
+                    const eDate = new Date(l.endDate);
+                    sDate.setHours(0,0,0,0);
+                    eDate.setHours(0,0,0,0);
+                    return d >= sDate && d <= eDate;
+                  });
+                };
+
                 // SANDWICH LOGIC
                 let isSandwich = false;
                 const holidayType = getHolidayType(cellDate);
@@ -276,6 +293,8 @@ const EmployeeDashboard = () => {
 
                 const currentLeave = getApprovedLeave(cellDate);
                 const isLeaveDay = !!currentLeave;
+                const currentPendingLeave = getPendingLeave(cellDate);
+                const isPendingLeaveDay = !!currentPendingLeave;
 
                 let bgColor = 'transparent';
                 let textColor = '#475569';
@@ -298,6 +317,10 @@ const EmployeeDashboard = () => {
                 } else if (isLeaveDay) {
                   bgColor = '#FEE2E2'; // Intermediate Red/Pink (Leave)
                   textColor = '#991B1B'; 
+                } else if (isPendingLeaveDay) {
+                  bgColor = '#FEF3C7'; // Warm Amber/Yellow (Pending Leave)
+                  textColor = '#D97706'; 
+                  borderColor = '#FCD34D';
                 }
 
                 const holidayInfo = holidays.find(h => {
@@ -317,7 +340,8 @@ const EmployeeDashboard = () => {
                 
                 if (isSandwich) titleParts.push("Sandwich Rule Applied (Deducted)");
                 else if (holidayType && isLeaveDay) titleParts.push("Holiday Refunded (Not Deducted)");
-                else if (isLeaveDay) titleParts.push("Approved Leave");
+                else if (isLeaveDay) titleParts.push(`Approved Leave (${currentLeave?.leaveType})`);
+                else if (isPendingLeaveDay) titleParts.push(`Pending Leave (${currentPendingLeave?.leaveType})`);
 
                 return (
                   <div key={dayNum} 
