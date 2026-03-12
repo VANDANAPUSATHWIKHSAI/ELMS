@@ -8,19 +8,14 @@ async function seedPrincipals() {
     await mongoose.connect(MONGO_URI);
     console.log('✅ Connected to MongoDB');
 
-    const years = ['1st yr', '2nd yr', '3rd yr', '4th yr'];
-
-    for (let i = 0; i < years.length; i++) {
-      const year = years[i];
-      const yearDigit = year.charAt(0);
-      const empId = (501 + i).toString(); // 501, 502, 503, 504
-      
-      const existing = await User.findOne({ employeeId: empId });
-      if (existing) {
-        console.log(`⚠️  Principal ${empId} already exists, skipping...`);
-        continue;
-      }
-
+    const empId = "501";
+    
+    const existing = await User.findOne({ employeeId: empId });
+    if (existing) {
+      existing.password = '678';
+      await existing.save();
+      console.log(`✅ Principal ${empId} password ensured as 678`);
+    } else {
       const newUser = new User({
         employeeId: empId,
         password: '678',
@@ -28,22 +23,26 @@ async function seedPrincipals() {
         firstName: `BL`,
         lastName: `Malleswari`,
         department: 'Administration',
-        teachingYear: year,
-        email: `principal${yearDigit}@kmit.in`,
-        mobile: `988888880${yearDigit}`,
-        gender: 'Male',
+        teachingYear: 'All',
+        email: `principal@kmit.in`,
+        mobile: `9888888800`,
+        gender: 'Female',
         designation: 'Principal',
         address: 'KMIT Campus',
-        aadhaar: `88888888888${yearDigit}`,
-        pan: `PRIN${yearDigit}123Z`,
+        aadhaar: `888888888888`,
+        pan: `PRIN00123Z`,
         dob: new Date('1975-01-01'),
         doj: new Date('2015-01-01'),
         leaveBalance: { cl: 15, ccl: 0, al: 0, lop: 0 }
       });
 
       await newUser.save();
-      console.log(`✅ Created Principal: ${empId} (${year})`);
+      console.log(`✅ Created Principal: ${empId}`);
     }
+
+    // Clean up others if they exist
+    await User.deleteMany({ employeeId: { $in: ["502", "503", "504"] }, role: "Principal" });
+    console.log('🗑️  Removed extra Principal accounts (502, 503, 504) if they existed');
 
     console.log('🚀 Principal Seeding complete!');
     process.exit(0);

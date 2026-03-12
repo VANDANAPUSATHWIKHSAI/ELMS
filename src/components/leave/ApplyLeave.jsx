@@ -23,6 +23,7 @@ const ApplyLeave = () => {
   // NEW STATES: Balance, Late Marks
   const [leaveBalance, setLeaveBalance] = useState({ cl: 0, ccl: 0, al: 0 });
   const [lateMarks, setLateMarks] = useState([]);
+  const [summerEligibility, setSummerEligibility] = useState({ quota: 0, hasApplied: false });
 
   // --- DATE CONSTRAINTS ---
   const [minDate, setMinDate] = useState('');
@@ -63,6 +64,9 @@ const ApplyLeave = () => {
       
       const resLM = await apiFetch(`http://localhost:5000/api/late-marks/${user.employeeId}`);
       if (resLM.ok) setLateMarks(await resLM.json());
+
+      const resSummer = await apiFetch(`http://localhost:5000/api/leave/summer-eligibility/${user.employeeId}`);
+      if (resSummer.ok) setSummerEligibility(await resSummer.json());
     } catch(err) {
       console.error("Failed to fetch user extra data");
     }
@@ -76,10 +80,31 @@ const ApplyLeave = () => {
   // --- HANDLERS ---
   const handleChange = (e) => {
     const { name, value } = e.target;
+    
+    if (formData.leaveType === 'Summer Leave' && name === 'startDate') {
+      if (summerEligibility.hasApplied) {
+        notify("You have already applied for Summer Leave this year.", "error");
+        return;
+      }
+      if (summerEligibility.quota === 0) {
+        notify("You are not eligible for Summer Leave based on your tenure.", "error");
+        return;
+      }
+    }
+
     setFormData(prev => {
       const updated = { ...prev, [name]: value };
       if (isHalfDay && name === 'startDate') {
         updated.endDate = value;
+      }
+      // Auto-validate Summer Leave end date if start date changes
+      if (formData.leaveType === 'Summer Leave' && name === 'startDate' && updated.endDate) {
+         const s = new Date(value);
+         const e = new Date(updated.endDate);
+         const diff = Math.ceil((e - s) / (1000 * 60 * 60 * 24)) + 1;
+         if (diff > summerEligibility.quota) {
+            updated.endDate = ''; // Reset invalid end date
+         }
       }
       return updated;
     });
@@ -144,7 +169,7 @@ const ApplyLeave = () => {
 
     // Strict validation for custom types (anything except OD, and if not Standard overflow types)
     // Actually, following user's "any leave type" - usually non-standard ones should be strict.
-    const isCustomType = !['STANDARD', 'OD', 'AL', 'CL', 'CCL'].includes(formData.leaveType.toUpperCase());
+    const isCustomType = !['STANDARD', 'OD', 'AL', 'CL', 'CCL', 'SUMMER LEAVE'].includes(formData.leaveType.toUpperCase());
 
     if (isCustomType && requestedDays > availableBalance) {
       notify(`Insufficient balance for ${formData.leaveType}. Available: ${availableBalance}, Requested: ${requestedDays}`, "error");
@@ -318,11 +343,45 @@ const ApplyLeave = () => {
             <div style={styles.row} className="resp-row">
               <div style={styles.group}>
                 <label style={styles.label}>From</label>
-                <input type="date" name="startDate" value={formData.startDate} min={minDate} onChange={handleChange} required style={styles.input} />
+                <input 
+                  type="date" 
+                  name="startDate" 
+                  value={formData.startDate} 
+                  min={minDate} 
+                  onChange={handleChange} 
+                  required 
+                  style={styles.input} 
+                  disabled={formData.leaveType === 'Summer Leave' && (summerEligibility.hasApplied || summerEligibility.quota === 0)}
+                />
               </div>
               <div style={styles.group}>
                 <label style={styles.label}>To</label>
-                <input type="date" name="endDate" value={formData.endDate} min={formData.startDate || minDate} onChange={handleChange} required style={{...styles.input, backgroundColor: isHalfDay ? '#f1f5f9' : 'white'}} readOnly={isHalfDay} />
+                <input 
+                  type="date" 
+                  name="endDate" 
+                  value={formData.endDate} 
+                  min={formData.startDate || minDate} 
+                  max={formData.leaveType === 'Summer Leave' && formData.startDate && summerEligibility.quota > 0 ? (() => {
+                    const d = new Date(formData.startDate);
+                    d.setDate(d.getDate() + (summerEligibility.quota - 1));
+                    return d.toISOString().split('T')[0];
+                  })() : undefined}
+                  onChange={handleChange} 
+                  required 
+                  style={{...styles.input, backgroundColor: (isHalfDay || (formData.leaveType === 'Summer Leave' && (summerEligibility.hasApplied || summerEligibility.quota === 0))) ? '#f1f5f9' : 'white'}} 
+                  readOnly={isHalfDay} 
+                  disabled={formData.leaveType === 'Summer Leave' && (summerEligibility.hasApplied || summerEligibility.quota === 0)}
+                />
+                {formData.leaveType === 'Summer Leave' && summerEligibility.quota > 0 && !summerEligibility.hasApplied && (
+                  <span style={{ fontSize: '11px', color: '#F17F08', marginTop: '4px' }}>
+                    Max allowed: {summerEligibility.quota} days
+                  </span>
+                )}
+                {formData.leaveType === 'Summer Leave' && summerEligibility.hasApplied && (
+                  <span style={{ fontSize: '11px', color: '#ef4444', marginTop: '4px' }}>
+                    Already Applied for this year.
+                  </span>
+                )}
               </div>
             </div>
 

@@ -286,7 +286,8 @@ const EmployeeDashboard = () => {
                   const prevLeave = getApprovedLeave(dayBeforeBlock);
                   const nextLeave = getApprovedLeave(dayAfterBlock);
                   
-                  if (prevLeave && !prevLeave.isHalfDay && nextLeave && !nextLeave.isHalfDay) {
+                  if (prevLeave && !prevLeave.isHalfDay && prevLeave.leaveType !== 'Summer Leave' &&
+                      nextLeave && !nextLeave.isHalfDay && nextLeave.leaveType !== 'Summer Leave') {
                     isSandwich = true;
                   }
                 }

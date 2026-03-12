@@ -20,7 +20,7 @@ const UserSchema = new mongoose.Schema({
   dob: Date,
   doj: Date,
   address: String,
-  teachingYear: String,
+   teachingYear: mongoose.Schema.Types.Mixed,
   
   // Professional Details
   department: String,
@@ -39,6 +39,7 @@ const UserSchema = new mongoose.Schema({
     default: { cl: 6, ccl: 0, al: 0, lop: 0 }
   },
   profileImg: String,
+  hodId: String, // Direct reference to the HOD's employeeId (for employees with shared-dept HODs)
   resetPasswordOTP: String,
   resetPasswordOTPExpiry: Date,
   resetPasswordToken: String

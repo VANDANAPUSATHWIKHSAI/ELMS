@@ -15,6 +15,8 @@ const AdminEmployees = () => {
   const [departments, setDepartments] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [availableHods, setAvailableHods] = useState([]);
+  const [hodLoading, setHodLoading] = useState(false);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -30,6 +32,7 @@ const AdminEmployees = () => {
     department: '',
     role: 'Employee',
     teachingYear: '',
+    hodId: '',
     password: 'password123',
     designation: '', mobile: '', gender: '', address: '', aadhaar: '', pan: '', aicteId: '', jntuUid: '', dob: '', doj: ''
   });
@@ -74,7 +77,6 @@ const AdminEmployees = () => {
     fetchEmployees();
     fetchDepartments();
   }, []);
-
   const handleInputChange = (e) => {
     let { name, value } = e.target;
     
@@ -89,13 +91,36 @@ const AdminEmployees = () => {
     setFormData({ ...formData, [name]: value });
   };
 
+  useEffect(() => {
+    const fetchHods = async () => {
+      if (!formData.department) {
+        setAvailableHods([]);
+        return;
+      }
+      setHodLoading(true);
+      try {
+        const params = new URLSearchParams({
+          department: formData.department,
+          teachingYear: formData.teachingYear
+        }).toString();
+        const res = await apiFetch(`http://localhost:5000/api/admin/available-hods?${params}`);
+        if (res.ok) {
+          setAvailableHods(await res.json());
+        }
+      } catch (err) { console.error("Error fetching HODs", err); }
+      finally { setHodLoading(false); }
+    };
+    if (showModal) fetchHods();
+  }, [formData.department, formData.teachingYear, showModal]);
+
   const resetForm = () => {
     setFormData({
-      employeeId: '', firstName: '', lastName: '', email: '', department: '', role: 'Employee', teachingYear: '', password: 'password123',
+      employeeId: '', firstName: '', lastName: '', email: '', department: '', role: 'Employee', teachingYear: '', hodId: '', password: 'password123',
       designation: '', mobile: '', gender: '', address: '', aadhaar: '', pan: '', aicteId: '', jntuUid: '', dob: '', doj: ''
     });
     setEditMode(false);
     setCurrentId(null);
+    setAvailableHods([]);
   };
 
   const openAddModal = () => {
@@ -123,6 +148,7 @@ const AdminEmployees = () => {
       pan: emp.pan || '',
       aicteId: emp.aicteId || '',
       jntuUid: emp.jntuUid || '',
+      hodId: emp.hodId || '',
       dob: formatDate(emp.dob),
       doj: formatDate(emp.doj)
     });
@@ -270,6 +296,7 @@ const AdminEmployees = () => {
                     <th style={styles.th(isMobile)}>ID</th>
                     <th style={styles.th(isMobile)}>Name</th>
                     <th style={styles.th(isMobile)}>Year</th>
+                    <th style={styles.th(isMobile)}>HOD</th>
                     <th style={styles.th(isMobile)}>Dept</th>
                     <th style={styles.th(isMobile)}>Email</th>
                     <th style={styles.th(isMobile)}>Actions</th>
@@ -288,6 +315,9 @@ const AdminEmployees = () => {
                         }}>
                           {emp.teachingYear || 'N/A'}
                         </span>
+                      </td>
+                      <td style={styles.td(isMobile)}>
+                        <span style={{ color: '#64748b', fontSize: '12px' }}>{emp.hodId || 'Not Assigned'}</span>
                       </td>
                       <td style={styles.td(isMobile)}>{emp.department || '-'}</td>
                       <td style={styles.td(isMobile)}>{emp.email || '-'}</td>
@@ -319,13 +349,83 @@ const AdminEmployees = () => {
             </div>
             
             <form onSubmit={handleSubmit} style={styles.form} autoComplete="off">
-              <div style={styles.formGrid}>
+              <div style={isMobile ? { display: 'flex', flexDirection: 'column', gap: '16px' } : styles.formGrid}>
+                {/* Row 1: ID & DOB */}
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>Employee ID *</label>
                   <input required name="employeeId" value={formData.employeeId} onChange={handleInputChange} disabled={editMode} style={styles.input} />
                 </div>
-                
-                {/* Password field is now always shown for Admin. Leaves empty for no change */}
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>Date of Birth *</label>
+                  <input required type="date" name="dob" value={formData.dob} onChange={handleInputChange} style={styles.input} />
+                </div>
+
+                {/* Row 2: Names Together */}
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>First Name *</label>
+                  <input required name="firstName" value={formData.firstName} onChange={handleInputChange} style={styles.input} />
+                </div>
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>Last Name *</label>
+                  <input required name="lastName" value={formData.lastName} onChange={handleInputChange} style={styles.input} />
+                </div>
+
+                {/* Row 3: Joining & Contact */}
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>Date of Joining *</label>
+                  <input required type="date" name="doj" value={formData.doj} onChange={handleInputChange} style={styles.input} />
+                </div>
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>Mobile *</label>
+                  <input required name="mobile" value={formData.mobile} onChange={handleInputChange} style={styles.input} />
+                </div>
+
+                {/* Row 4: Email & Dept */}
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>Email *</label>
+                  <input required type="email" name="email" value={formData.email} onChange={handleInputChange} style={styles.input} />
+                </div>
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>Department *</label>
+                  <select required name="department" value={formData.department} onChange={handleInputChange} style={styles.input}>
+                    <option value="">Select Department</option>
+                    {departments.map(dept => (
+                      <option key={dept._id} value={dept.name}>{dept.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Row 5: Prof Details */}
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>Designation *</label>
+                  <select required name="designation" value={formData.designation} onChange={handleInputChange} style={styles.input}>
+                    <option value="">Select Designation</option>
+                    <option value="Assistant Professor">Assistant Professor</option>
+                    <option value="Associate Professor">Associate Professor</option>
+                    <option value="Professor">Professor</option>
+                  </select>
+                </div>
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>Teaching Year *</label>
+                  <select required name="teachingYear" value={formData.teachingYear} onChange={handleInputChange} style={styles.input}>
+                    <option value="">Select Year</option>
+                    <option value="1st yr">1st yr</option>
+                    <option value="2nd yr">2nd yr</option>
+                    <option value="3rd yr">3rd yr</option>
+                    <option value="4th yr">4th yr</option>
+                  </select>
+                </div>
+
+                {/* Row 6: Gender & Password */}
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>Gender *</label>
+                  <select required name="gender" value={formData.gender} onChange={handleInputChange} style={styles.input}>
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>{editMode ? 'Reset Password (optional)' : 'Temporary Password *'}</label>
                   <div style={{ position: 'relative' }}>
@@ -359,89 +459,14 @@ const AdminEmployees = () => {
                   </div>
                 </div>
 
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>First Name *</label>
-                  <input required name="firstName" value={formData.firstName} onChange={handleInputChange} style={styles.input} />
-                </div>
-
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Last Name *</label>
-                  <input required name="lastName" value={formData.lastName} onChange={handleInputChange} style={styles.input} />
-                </div>
-
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Email *</label>
-                  <input required type="email" name="email" value={formData.email} onChange={handleInputChange} style={styles.input} />
-                </div>
-
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Department *</label>
-                  <select required name="department" value={formData.department} onChange={handleInputChange} style={styles.input}>
-                    <option value="">Select Department</option>
-                    {departments.map(dept => (
-                      <option key={dept._id} value={dept.name}>{dept.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Teaching Year *</label>
-                  <select required name="teachingYear" value={formData.teachingYear} onChange={handleInputChange} style={styles.input}>
-                    <option value="">Select Year</option>
-                    <option value="1st yr">1st yr</option>
-                    <option value="2nd yr">2nd yr</option>
-                    <option value="3rd yr">3rd yr</option>
-                    <option value="4th yr">4th yr</option>
-                  </select>
-                </div>
-                
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Designation *</label>
-                  <select required name="designation" value={formData.designation} onChange={handleInputChange} style={styles.input}>
-                    <option value="">Select Designation</option>
-                    <option value="Assistant Professor">Assistant Professor</option>
-                    <option value="Professor">Professor</option>
-                  </select>
-                </div>
-                
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Mobile *</label>
-                  <input required name="mobile" value={formData.mobile} onChange={handleInputChange} style={styles.input} />
-                </div>
-
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Gender *</label>
-                  <select required name="gender" value={formData.gender} onChange={handleInputChange} style={styles.input}>
-                    <option value="">Select Gender</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Date of Birth *</label>
-                  <input required type="date" name="dob" value={formData.dob} onChange={handleInputChange} style={styles.input} />
-                </div>
-
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Date of Joining *</label>
-                  <input required type="date" name="doj" value={formData.doj} onChange={handleInputChange} style={styles.input} />
-                </div>
-
+                {/* Row 7: Gov IDs */}
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>Aadhaar Number *</label>
                   <input required name="aadhaar" value={formData.aadhaar} onChange={handleInputChange} style={styles.input} />
                 </div>
-
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>PAN Number *</label>
                   <input required name="pan" value={formData.pan} onChange={handleInputChange} style={styles.input} />
-                </div>
-
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>AICTE ID</label>
-                  <input name="aicteId" value={formData.aicteId} onChange={handleInputChange} style={styles.input} />
                 </div>
 
                 <div style={styles.inputGroup}>
@@ -449,7 +474,24 @@ const AdminEmployees = () => {
                   <input name="jntuUid" value={formData.jntuUid} onChange={handleInputChange} style={styles.input} />
                 </div>
 
-                <div style={{ ...styles.inputGroup, gridColumn: 'span 2' }}>
+                {/* HOD Selection */}
+                <div style={{ ...styles.inputGroup, ...(isMobile ? {} : { gridColumn: 'span 2' }) }}>
+                  <label style={styles.label}>Assigned HOD (For Leave Permissions) *</label>
+                  <select required name="hodId" value={formData.hodId} onChange={handleInputChange} style={styles.input}>
+                    <option value="">{hodLoading ? 'Loading HODs...' : 'Select HOD'}</option>
+                    {availableHods.map(hod => (
+                      <option key={hod.employeeId} value={hod.employeeId}>
+                        {hod.firstName} {hod.lastName} ({hod.employeeId}) - {hod.department} {Array.isArray(hod.teachingYear) ? hod.teachingYear.join(', ') : hod.teachingYear}
+                      </option>
+                    ))}
+                  </select>
+                  {!hodLoading && availableHods.length === 0 && formData.department && formData.teachingYear && (
+                    <span style={{ fontSize: '11px', color: '#ef4444' }}>* No HODs found for this Dept/Year. Please create an HOD first.</span>
+                  )}
+                </div>
+
+                {/* Row 9: Address */}
+                <div style={{ ...styles.inputGroup, ...(isMobile ? {} : { gridColumn: 'span 2' }) }}>
                   <label style={styles.label}>Address *</label>
                   <input required name="address" value={formData.address} onChange={handleInputChange} style={styles.input} />
                 </div>

@@ -11,7 +11,14 @@ const HodDashboard = () => {
   const [summary, setSummary] = useState({ pending: 0, autoApproved: 0 });
   const [todaysLeaves, setTodaysLeaves] = useState([]);
   const [loadingToday, setLoadingToday] = useState(true);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const kmitOrange = "#F17F08";
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const fetchSummary = async () => {
@@ -39,13 +46,16 @@ const HodDashboard = () => {
   }, [user]);
 
   return (
-    <div style={styles.container}>
+    <div style={{...styles.container, padding: isMobile ? '16px' : '0 0 40px 0'}}>
       <header style={styles.header}>
-        <h1 style={styles.pageTitle}>HOD Dashboard</h1>
-        <p style={styles.subtitle}>Overview for <strong style={{color: kmitOrange}}>{user?.department}</strong> Department</p>
+        <h1 style={{...styles.pageTitle, fontSize: isMobile ? '24px' : '28px'}}>HOD Dashboard</h1>
+        <p style={styles.subtitle}>
+          Overview for <strong style={{color: kmitOrange}}>{user?.department}</strong> Department 
+          {user?.teachingYear && <span style={{color: '#64748b'}}> ({user.teachingYear})</span>}
+        </p>
       </header>
 
-      <div style={styles.grid}>
+      <div style={{...styles.grid, gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(300px, 1fr))'}}>
         {/* PENDING CARD */}
         <div style={styles.card}>
           <div style={styles.cardHeader}>
@@ -62,7 +72,7 @@ const HodDashboard = () => {
         </div>
 
         {/* TODAY'S LEAVES SECTION */}
-        <div style={{...styles.card, gridColumn: 'span 1'}}>
+        <div style={styles.card}>
            <div style={styles.cardHeader}>
              <h3 style={styles.cardTitle}>Who is on leave today?</h3>
            </div>
@@ -98,12 +108,12 @@ const HodDashboard = () => {
 };
 
 const styles = {
-  container: { width: '100%', maxWidth: '1000px', margin: '0 auto', paddingBottom: '40px' },
+  container: { width: '100%', maxWidth: '1000px', margin: '0 auto' },
   header: { marginBottom: '30px' },
-  pageTitle: { fontSize: '28px', color: '#1e293b', fontWeight: '800', margin: 0 },
+  pageTitle: { color: '#1e293b', fontWeight: '800', margin: 0 },
   subtitle: { color: '#64748b', marginTop: '8px', fontSize: '15px' },
   
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' },
+  grid: { display: 'grid', gap: '24px' },
   card: { background: 'white', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column' },
   cardHeader: { display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '15px' },
   iconBox: { width: '50px', height: '50px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' },

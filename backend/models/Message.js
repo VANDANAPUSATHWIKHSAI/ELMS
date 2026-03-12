@@ -11,6 +11,7 @@ const messageSchema = new mongoose.Schema({
   message: { type: String, required: true },
   status: { type: String, enum: ['Unread', 'Read'], default: 'Unread' },
   reply: { type: String, default: null },
+  replyStatus: { type: String, enum: ['Unread', 'Read'], default: 'Unread' },
   repliedAt: { type: Date, default: null },
   repliedBy: { type: String, default: null },
   createdAt: { type: Date, default: Date.now }

@@ -13,7 +13,7 @@ const ContactForm = () => {
     setStatus({ loading: true, success: null, error: null });
 
     try {
-      const res = await apiFetch('http://localhost:5000/api/messages/send', {
+      const res = await apiFetch(`${window.location.protocol}//${window.location.hostname}:5000/api/messages/send`, {
         method: 'POST',
         body: JSON.stringify({ recipientRole, subject, message })
       });

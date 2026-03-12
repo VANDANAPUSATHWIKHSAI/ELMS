@@ -73,3 +73,24 @@ a, button {
   .hide-mobile { display: none !important; }
   .show-mobile { display: block !important; }
 }
+
+/* iOS Safari Input Overrides to Fix Overflow */
+input, textarea, select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  max-width: 100%;
+}
+
+/* Restore appearance for checkboxes and radio buttons */
+input[type="checkbox"], input[type="radio"] {
+  -webkit-appearance: auto;
+  -moz-appearance: auto;
+  appearance: auto;
+}
+
+/* Fix iOS Date input minimum width issue */
+input[type="date"], input[type="time"], input[type="datetime-local"] {
+  min-width: 0;
+  width: 100%;
+}

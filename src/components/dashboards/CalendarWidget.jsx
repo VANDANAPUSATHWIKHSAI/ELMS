@@ -10,6 +10,13 @@ const CalendarWidget = () => {
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedDateInfo, setSelectedDateInfo] = useState("");
   const [viewDate, setViewDate] = useState(new Date());
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const kmitOrange = "#F17F08";
 
@@ -42,34 +49,46 @@ const CalendarWidget = () => {
   const nextMonth = () => setViewDate(new Date(year, month + 1, 1));
 
   return (
-    <div style={{...styles.solidCard, gridColumn: 'span 2'}} className="dash-card">
-      <div style={{...styles.cardHeader, justifyContent: 'space-between'}}>
+    <div style={{...styles.solidCard, gridColumn: isMobile ? 'span 1' : 'span 2'}} className="dash-card">
+      <div style={{...styles.cardHeader, justifyContent: 'space-between', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: isMobile ? '12px' : '8px'}}>
         <div style={{display:'flex', alignItems:'center', gap: '10px'}}>
           <CalendarIcon size={22} color={kmitOrange} />
           <h3 style={styles.cardTitle}>{monthNames[month]} {year}</h3>
         </div>
-        <div style={{display:'flex', gap: '10px'}}>
+        <div style={{display:'flex', gap: '10px', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'space-between' : 'flex-end'}}>
           <button onClick={prevMonth} style={styles.navBtn}><ChevronLeft size={18}/></button>
           <button onClick={nextMonth} style={styles.navBtn}><ChevronRight size={18}/></button>
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '15px', marginBottom: '15px', fontSize: '12px', fontWeight: '600', color: '#64748b', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fit, minmax(100px, 1fr))', 
+        gap: '12px', 
+        marginBottom: '20px', 
+        fontSize: '11px', 
+        fontWeight: '600', 
+        color: '#64748b',
+        background: '#f8fafc',
+        padding: '12px',
+        borderRadius: '8px',
+        border: '1px solid #e2e8f0'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#FFEDD5', border: '1px solid #FDBA74' }}></div>
           <span>Today</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#FEE2E2', border: '1px solid #FCA5A5' }}></div>
-          <span>Approved Leave</span>
+          <span>Approved</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#FEF3C7', border: '1px solid #FCD34D' }}></div>
-          <span>Pending Leave</span>
+          <span>Pending</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#DCFCE7', border: '1px solid #86EFAC' }}></div>
-          <span>Holiday / Sunday</span>
+          <span>Holiday / Sun</span>
         </div>
       </div>
       
@@ -154,7 +173,8 @@ const CalendarWidget = () => {
             const prevLeave = getApprovedLeave(dayBeforeBlock);
             const nextLeave = getApprovedLeave(dayAfterBlock);
             
-            if (prevLeave && !prevLeave.isHalfDay && nextLeave && !nextLeave.isHalfDay) {
+            if (prevLeave && !prevLeave.isHalfDay && prevLeave.leaveType !== 'Summer Leave' &&
+                nextLeave && !nextLeave.isHalfDay && nextLeave.leaveType !== 'Summer Leave') {
               isSandwich = true;
             }
           }

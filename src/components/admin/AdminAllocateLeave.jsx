@@ -148,11 +148,13 @@ const AdminAllocateLeave = () => {
             <div style={styles.inputGroup}>
               <label style={styles.label}>Leave Type *</label>
               <select name="leaveType" value={formData.leaveType} onChange={handleInputChange} required style={styles.input}>
-                {leaveTypes.map(type => (
-                  <option key={type._id} value={type.code.toUpperCase()}>
-                    {type.name} ({type.code.toUpperCase()})
-                  </option>
-                ))}
+                {leaveTypes
+                  .filter(type => ['CL', 'CCL'].includes(type.code.toUpperCase()))
+                  .map(type => (
+                    <option key={type._id} value={type.code.toUpperCase()}>
+                      {type.name} ({type.code.toUpperCase()})
+                    </option>
+                  ))}
               </select>
             </div>
 

@@ -27,7 +27,7 @@ const MessagesView = () => {
   const fetchMessages = async () => {
     setLoading(true);
     try {
-      const res = await apiFetch('http://localhost:5000/api/messages/inbox');
+      const res = await apiFetch(`${window.location.protocol}//${window.location.hostname}:5000/api/messages/inbox`);
       if (!res.ok) throw new Error("Failed to fetch messages");
       setMessages(await res.json());
     } catch (err) {
@@ -40,7 +40,7 @@ const MessagesView = () => {
   const fetchSentMessages = async () => {
     setLoading(true);
     try {
-      const res = await apiFetch('http://localhost:5000/api/messages/sent');
+      const res = await apiFetch(`${window.location.protocol}//${window.location.hostname}:5000/api/messages/sent`);
       if (!res.ok) throw new Error("Failed to fetch sent messages");
       setSentMessages(await res.json());
     } catch (err) {
@@ -52,7 +52,7 @@ const MessagesView = () => {
 
   const markAsRead = async (id) => {
     try {
-      const res = await apiFetch(`http://localhost:5000/api/messages/read/${id}`, { method: 'PUT' });
+      const res = await apiFetch(`${window.location.protocol}//${window.location.hostname}:5000/api/messages/read/${id}`, { method: 'PUT' });
       if (res.ok) {
         setMessages(prev => prev.map(m => m._id === id ? { ...m, status: 'Read' } : m));
         window.dispatchEvent(new Event('messagesUpdated'));
@@ -64,7 +64,7 @@ const MessagesView = () => {
     if (!replyText.trim()) return notify('Reply cannot be empty', 'warning');
     setReplySending(true);
     try {
-      const res = await apiFetch(`http://localhost:5000/api/messages/reply/${msgId}`, {
+      const res = await apiFetch(`${window.location.protocol}//${window.location.hostname}:5000/api/messages/reply/${msgId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reply: replyText })
@@ -91,7 +91,7 @@ const MessagesView = () => {
     e.preventDefault();
     setComposeSending(true);
     try {
-      const res = await apiFetch('http://localhost:5000/api/messages/send-to-employee', {
+      const res = await apiFetch(`${window.location.protocol}//${window.location.hostname}:5000/api/messages/send-to-employee`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(compose)

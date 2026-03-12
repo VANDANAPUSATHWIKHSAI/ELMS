@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
-  Home, User, CalendarOff, Search, Shuffle, LogOut, Menu, X, 
+  Home, User, Calendar, CalendarOff, Search, Shuffle, LogOut, Menu, X, 
   FileCheck, ClipboardList, Users, Settings, Globe, MessageSquare, Mail,
   Clock, BarChart2, Inbox
 } from 'lucide-react';
@@ -13,14 +13,26 @@ const Sidebar = ({ isOpen, isMobile, onToggle, onClose }) => {
   const location = useLocation();
   const { user, logout } = useAuth();
   const [unreadCount, setUnreadCount] = React.useState(0);
+  const [summerConfig, setSummerConfig] = React.useState(null);
   const kmitOrange = "#F17F08";
 
   const handleLogout = () => { logout(); navigate("/"); };
 
   React.useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const res = await apiFetch('http://localhost:5000/api/admin/summer-config');
+        if (res.ok) {
+          const data = await res.json();
+          setSummerConfig(data);
+        }
+      } catch (err) { console.error("Error fetching summer config", err); }
+    };
+    fetchConfig();
+
     const fetchUnreadCount = async () => {
       try {
-        const res = await apiFetch('http://localhost:5000/api/messages/unread-count');
+        const res = await apiFetch(`${window.location.protocol}//${window.location.hostname}:5000/api/messages/unread-count`);
         if (res.ok) {
           const data = await res.json();
           setUnreadCount(data.count || 0);
@@ -38,14 +50,17 @@ const Sidebar = ({ isOpen, isMobile, onToggle, onClose }) => {
     };
   }, [location.pathname]); // Refresh on navigation too
 
+  const currentMonth = new Date().getMonth();
+  const isSummerLeaveSeason = summerConfig?.summerMonths?.includes(currentMonth) || false;
+
   // 1. Base items everyone sees
   const baseItems = [
     // Dynamic Home Path based on role
     { id: 'home', label: 'Home', icon: <Home size={22} />, path: user?.role === 'HoD' ? '/hod-dashboard' : '/home' },
     { id: 'profile', label: 'Profile', icon: <User size={22} />, path: '/profile' },
     { id: 'leaves', label: 'Leaves', icon: <CalendarOff size={22} />, path: '/leaves' },
+    ...(isSummerLeaveSeason ? [{ id: 'summer-leaves', label: 'Summer Leaves', icon: <CalendarOff size={22} color="#F17F08" />, path: '/summer-leaves' }] : []),
     { id: 'search', label: 'Search', icon: <Search size={22} />, path: '/search' },
-    { id: 'view-leaves', label: 'View Leaves', icon: <ClipboardList size={22} />, path: '/view-leaves-ledger' },
     { id: 'history', label: 'History', icon: <Clock size={22} />, path: '/leave-history' },
     { id: 'adjustments', label: 'Adjustments', icon: <Shuffle size={22} />, path: '/adjustments' },
   ];
@@ -54,6 +69,7 @@ const Sidebar = ({ isOpen, isMobile, onToggle, onClose }) => {
   const hodItems = [
     // Points to the new Approvals page
     { id: 'approvals', label: 'Approvals', icon: <FileCheck size={22} />, path: '/approvals' },
+    ...(isSummerLeaveSeason ? [{ id: 'hod-summer-approvals', label: 'Summer Approvals', icon: <FileCheck size={22} color="#F17F08" />, path: '/hod/summer-approvals' }] : []),
     { id: 'reports', label: 'Reports', icon: <ClipboardList size={22} />, path: '/reports' },
     { id: 'hod-messages', label: 'Messages', icon: <Mail size={22} />, path: '/hod/messages' },
   ];
@@ -65,6 +81,7 @@ const Sidebar = ({ isOpen, isMobile, onToggle, onClose }) => {
     { id: 'admin-employees', label: 'Employees', icon: <Users size={22} />, path: '/admin/employees' },
     { id: 'admin-departments', label: 'Departments', icon: <ClipboardList size={22} />, path: '/admin/departments' },
     { id: 'admin-leavetypes', label: 'Leave Types', icon: <Settings size={22} />, path: '/admin/leave-types' },
+    { id: 'admin-summer-config', label: 'Summer Configuration', icon: <Calendar size={22} color="#F17F08" />, path: '/admin/summer-config' },
     { id: 'admin-allocate', label: 'Allocate Leaves', icon: <ClipboardList size={22} />, path: '/admin/allocate-leave' },
     { id: 'admin-reports', label: 'Reports', icon: <ClipboardList size={22} />, path: '/admin/reports' },
     { id: 'admin-holidays', label: 'Holidays', icon: <ClipboardList size={22} />, path: '/admin/holidays' },
@@ -88,6 +105,7 @@ const Sidebar = ({ isOpen, isMobile, onToggle, onClose }) => {
       { id: 'principal-dashboard', label: 'Dashboard', icon: <Home size={22} />, path: '/principal-dashboard' },
       { id: 'principal-employees', label: 'All Employees', icon: <Users size={22} />, path: '/principal/employees' },
       { id: 'principal-rejected', label: 'Leave Decision Review', icon: <FileCheck size={22} />, path: '/principal/rejected-review' },
+      ...(isSummerLeaveSeason ? [{ id: 'principal-summer-approvals', label: 'Summer Approvals', icon: <FileCheck size={22} color="#F17F08" />, path: '/principal/summer-approvals' }] : []),
       { id: 'principal-analytics', label: 'Trends & Analytics', icon: <BarChart2 size={22} />, path: '/principal/analytics' },
       { id: 'principal-reports', label: 'Reports', icon: <Globe size={22} />, path: '/principal/reports' },
       { id: 'principal-messages', label: 'Messages', icon: <Mail size={22} />, path: '/principal/messages' },

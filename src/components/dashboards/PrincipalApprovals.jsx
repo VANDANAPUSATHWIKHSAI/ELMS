@@ -138,7 +138,9 @@ const PrincipalApprovals = () => {
                  {filteredRequests.map(req => (
                    <tr key={req._id} style={styles.tr}>
                      <td style={{...styles.td, fontWeight: 'bold'}}>{req.employeeName}</td>
-                     <td style={{...styles.td, color: kmitOrange, fontWeight: '600'}}>{req.department}</td>
+                     <td style={{...styles.td, color: kmitOrange, fontWeight: '600'}}>
+                       {req.department}
+                     </td>
                      <td style={styles.td}>
                        <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
                          <span style={styles.typeBadge}>

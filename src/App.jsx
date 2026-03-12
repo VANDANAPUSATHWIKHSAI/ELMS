@@ -12,6 +12,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Home from "./components/home";
 import Profile from "./components/profile";
 import ApplyLeave from "./components/leave/ApplyLeave"; 
+import ApplySummerLeave from "./components/leave/ApplySummerLeave";
 import LeaveHistory from "./components/leave/LeaveHistory";
 import LeaveLedgerView from "./components/leave/LeaveLedgerView";
 import EmployeeSearch from "./components/search/EmployeeSearch";
@@ -20,6 +21,7 @@ import Adjustments from "./components/adjustments/Adjustments";
 // HoD Pages
 import HodDashboard from './components/dashboards/HodDashboard'; 
 import HodApprovals from './components/dashboards/HodApprovals'; 
+import HodSummerApprovals from './components/dashboards/HodSummerApprovals';
 import Reports from './components/dashboards/Reports';
 
 // Principal Pages
@@ -29,6 +31,7 @@ import PrincipalReports from './components/dashboards/PrincipalReports';
 import PrincipalEmployees from './components/dashboards/PrincipalEmployees';
 import PrincipalAnalytics from './components/dashboards/PrincipalAnalytics';
 import PrincipalRejectedReview from './components/dashboards/PrincipalRejectedReview';
+import PrincipalSummerApprovals from './components/dashboards/PrincipalSummerApprovals';
 
 
 // Admin Pages
@@ -40,6 +43,7 @@ import AdminReports from './components/admin/AdminReports';
 import AdminHolidays from './components/admin/AdminHolidays';
 import AdminLateMarksManager from './components/admin/AdminLateMarksManager';
 import AdminLeaveTypes from './components/admin/AdminLeaveTypes';
+import AdminSummerConfig from './components/admin/AdminSummerConfig';
 import AccountSettings from './components/AccountSettings';
 
 // Messages
@@ -69,9 +73,9 @@ function App() {
             <Route path="/home" element={<Home />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/leaves" element={<ApplyLeave />} />
+            <Route path="/summer-leaves" element={<ApplySummerLeave />} />
             <Route path="/leave-history" element={<LeaveHistory />} />
             <Route path="/view-leaves" element={<LeaveHistory />} />
-            <Route path="/view-leaves-ledger" element={<LeaveLedgerView />} />
             <Route path="/search" element={<EmployeeSearch />} />
             <Route path="/adjustments" element={<Adjustments />} />
             <Route path="/settings" element={<AccountSettings />} />
@@ -100,6 +104,15 @@ function App() {
               element={
                 <ProtectedRoute role="HoD">
                   <HodApprovals />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="/hod/summer-approvals" 
+              element={
+                <ProtectedRoute role="HoD">
+                  <HodSummerApprovals />
                 </ProtectedRoute>
               } 
             />
@@ -173,6 +186,14 @@ function App() {
                 </ProtectedRoute>
               } 
             />
+            <Route 
+              path="/principal/summer-approvals" 
+              element={
+                <ProtectedRoute role="Principal">
+                  <PrincipalSummerApprovals />
+                </ProtectedRoute>
+              } 
+            />
 
             {/* Admin Specific Routes */}
             <Route 
@@ -204,6 +225,14 @@ function App() {
               element={
                 <ProtectedRoute role="Admin">
                   <AdminLeaveTypes />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/summer-config" 
+              element={
+                <ProtectedRoute role="Admin">
+                  <AdminSummerConfig />
                 </ProtectedRoute>
               } 
             />

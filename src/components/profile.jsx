@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from "../context/AuthContext"; 
 import { useNotification } from "../context/NotificationContext";
 import { 
-  User, Camera, Save, X, Image as ImageIcon, Video, Edit3 
+  User, Camera, Save, X, Image as ImageIcon, Video, Edit3, Trash2 
 } from 'lucide-react';
 
 // --- REUSABLE INPUT COMPONENT (From Old Code) ---
@@ -38,6 +38,7 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({});
+  const [initialData, setInitialData] = useState({}); // To revert on cancel
   
   // Camera/Image States (From Old Code)
   const [profileImg, setProfileImg] = useState(null); 
@@ -57,7 +58,9 @@ const Profile = () => {
         if (res.ok) {
           // Format dates for inputs (YYYY-MM-DD)
           const formatDate = (d) => d ? new Date(d).toISOString().split('T')[0] : "";
-          setFormData({ ...data, dob: formatDate(data.dob), doj: formatDate(data.doj) });
+          const formatted = { ...data, dob: formatDate(data.dob), doj: formatDate(data.doj) };
+          setFormData(formatted);
+          setInitialData(formatted);
           if (data.profileImg) setProfileImg(data.profileImg);
         }
       } catch (err) { console.error(err); } 
@@ -135,6 +138,25 @@ const Profile = () => {
     setIsCameraActive(false);
   };
 
+  const handleRemovePhoto = async () => {
+    setProfileImg(null);
+    setShowPhotoOptions(false);
+    try {
+      const res = await apiFetch(`http://localhost:5000/api/user/${authUser.employeeId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profileImg: null })
+      });
+      if (res.ok) {
+        notify("Profile photo removed.", "success");
+      } else {
+        notify("Failed to remove photo.", "error");
+      }
+    } catch (err) {
+      notify("Network error.", "error");
+    }
+  };
+
   if (loading) return <p style={{textAlign:'center', marginTop: '50px'}}>Loading Profile...</p>;
 
   return (
@@ -150,11 +172,17 @@ const Profile = () => {
           </button>
         ) : (
            <div style={{display:'flex', gap:'10px'}}>
-              <button onClick={() => setIsEditing(false)} style={styles.cancelBtn}>
+              <button 
+                onClick={() => {
+                  setFormData(initialData);
+                  setIsEditing(false);
+                }} 
+                style={styles.cancelBtn}
+              >
                 <X size={18} /> Cancel
               </button>
               <button onClick={handleSave} style={styles.saveBtn}>
-                <Save size={18} /> Save Changes
+                 <Save size={18} /> Save Changes
               </button>
            </div>
         )}
@@ -195,24 +223,39 @@ const Profile = () => {
             <ProfileField label="Date of Birth" name="dob" type="date" value={formData.dob} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
             
             <ProfileField label="First Name" name="firstName" value={formData.firstName} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
-            <ProfileField label="Date of Joining" name="doj" type="date" value={formData.doj} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
-            
             <ProfileField label="Last Name" name="lastName" value={formData.lastName} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
+            
+            <ProfileField label="Date of Joining" name="doj" type="date" value={formData.doj} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
             <ProfileField label="Mobile" name="mobile" value={formData.mobile} isReadOnly={false} isEditing={isEditing} onChange={handleInputChange} />
             
             <ProfileField label="Email" name="email" value={formData.email} isReadOnly={false} isEditing={isEditing} onChange={handleInputChange} />
             <ProfileField label="Department" name="department" value={formData.department} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
             
-            <ProfileField label="Designation" name="designation" value={formData.designation} isReadOnly={false} isEditing={isEditing} onChange={handleInputChange} />
+            <ProfileField label="Assigned HOD" name="assignedHod" value={formData.assignedHod || 'Not Assigned'} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
+            <ProfileField label="Designation" name="designation" value={formData.designation} isReadOnly={authUser?.role !== 'Admin'} isEditing={isEditing} onChange={handleInputChange} />
             <ProfileField label="Teaching Year" name="teachingYear" value={formData.teachingYear} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
             
             <ProfileField label="Gender" name="gender" value={formData.gender} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
-            
             <ProfileField label="Aadhaar" name="aadhaar" value={formData.aadhaar} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
-            <ProfileField label="PAN" name="pan" value={formData.pan} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
             
-            <ProfileField label="JNTU UID" name="jntuUid" value={formData.jntuUid} isReadOnly={false} isEditing={isEditing} onChange={handleInputChange} />
-            <ProfileField label="AICTE ID" name="aicteId" value={formData.aicteId} isReadOnly={false} isEditing={isEditing} onChange={handleInputChange} />
+            <ProfileField label="PAN" name="pan" value={formData.pan} isReadOnly={true} isEditing={isEditing} onChange={handleInputChange} />
+            <ProfileField 
+              label="JNTU UID" 
+              name="jntuUid" 
+              value={formData.jntuUid} 
+              isReadOnly={authUser?.role !== 'Admin' && initialData.jntuUid !== "NA" && initialData.jntuUid !== ""} 
+              isEditing={isEditing} 
+              onChange={handleInputChange} 
+            />
+            
+            <ProfileField 
+              label="AICTE ID" 
+              name="aicteId" 
+              value={formData.aicteId} 
+              isReadOnly={authUser?.role !== 'Admin' && initialData.aicteId !== "NA" && initialData.aicteId !== ""} 
+              isEditing={isEditing} 
+              onChange={handleInputChange} 
+            />
             
             <div style={{gridColumn: window.innerWidth <= 768 ? 'span 1' : 'span 2'}}>
               <ProfileField label="Address" name="address" value={formData.address} isReadOnly={false} isEditing={isEditing} onChange={handleInputChange} />
@@ -249,6 +292,17 @@ const Profile = () => {
                   <Video size={24} color={kmitOrange} />
                   <span style={styles.optionText}>Take Real-time Photo</span>
                 </button>
+                {profileImg && (
+                  <button 
+                    style={{...styles.optionBtn, borderColor: '#fca5a5'}}
+                    onClick={handleRemovePhoto}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fef2f2'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                  >
+                    <Trash2 size={24} color="#ef4444" />
+                    <span style={{...styles.optionText, color: '#ef4444'}}>Remove Photo</span>
+                  </button>
+                )}
                 <input type="file" ref={fileInputRef} hidden accept="image/*" onChange={handleFileUpload} />
               </div>
             ) : (
